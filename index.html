@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (우클릭 마커 생성)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (마커 바로 위 팝업)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -29,20 +29,21 @@
         #map-wrapper { flex-grow: 1; height: 100%; position: relative; z-index: 2; }
         #map { width: 100%; height: 100%; background-color: #eee; }
 
-        /* 지도 위 커스텀 오버레이 (우클릭 시 마커 위에 뜨는 카드) */
+        /* [수정됨] 마커 바로 위에 딱 붙는 깔끔한 팝업 카드 스타일 */
         .map-popup-card {
-            background: white; padding: 12px 15px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-            border: 2px solid #3498db; display: flex; flex-direction: column; gap: 8px; width: 220px;
-            transform: translate(-50%, -110%); position: relative; font-size: 12px;
+            background: white; padding: 10px 12px; border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid #3498db; 
+            display: flex; flex-direction: column; gap: 6px; width: 180px;
+            transform: translate(-50%, -10px); position: relative; font-size: 11px;
         }
         .map-popup-card::after {
-            content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-            border-width: 8px 8px 0; border-style: solid; border-color: #3498db transparent; display: block; width: 0;
+            content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+            border-width: 7px 7px 0; border-style: solid; border-color: #3498db transparent; display: block; width: 0;
         }
-        .map-popup-title { font-weight: bold; color: #2c3e50; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .map-popup-title { font-weight: bold; color: #2c3e50; font-size: 12px; border-bottom: 1px solid #eee; padding-bottom: 3px; display: flex; justify-content: space-between; align-items: center; }
         .map-popup-add-btn {
-            background: #3498db; color: white; border: none; padding: 8px; border-radius: 6px;
-            font-weight: bold; cursor: pointer; text-align: center; font-size: 12px; transition: background 0.2s;
+            background: #3498db; color: white; border: none; padding: 6px; border-radius: 4px;
+            font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; transition: background 0.2s;
         }
         .map-popup-add-btn:hover { background: #2980b9; }
 
@@ -312,7 +313,7 @@
 
         let spotsData = {};       
         let editingRecordId = null; 
-        let tempCustomOverlay = null; // 우클릭 시 마커 위에 뜨는 카드 오버레이
+        let tempCustomOverlay = null; 
 
         window.addEventListener("DOMContentLoaded", function() {
             if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -332,7 +333,6 @@
                     map = new kakao.maps.Map(mapContainer, mapOption);
                     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
 
-                    // 브라우저 기본 우클릭 메뉴 차단
                     mapContainer.addEventListener('contextmenu', function(e) {
                         e.preventDefault();
                     });
@@ -346,10 +346,10 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    // [마우스 우클릭 이벤트] 패널을 바로 열지 않고, 마커와 '기록 추가' 카드를 띄움
+                    // [마우스 우클릭] 마커 바로 위에 밀착되는 커스텀 오버레이 배치
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
-                        closePanel(); // 기존 열려있던 패널 닫기
+                        closePanel(); 
 
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
@@ -357,7 +357,6 @@
 
                         currentSpotId = 'spot_' + Date.now();
                         
-                        // 기존 임시 마커 및 카드 제거
                         if (window.tempMarker) {
                             window.tempMarker.setMap(null);
                         }
@@ -365,13 +364,11 @@
                             tempCustomOverlay.setMap(null);
                         }
 
-                        // 임시 마커 생성
                         window.tempMarker = new kakao.maps.Marker({
                             position: latLng,
                             map: map
                         });
 
-                        // 마커 위에 띄울 HTML 카드 생성
                         const content = document.createElement('div');
                         content.className = 'map-popup-card';
                         content.innerHTML = `
@@ -382,10 +379,11 @@
                             <button class="map-popup-add-btn" onclick="openPanelFromTempMarker()">출조 기록 추가하기</button>
                         `;
 
+                        // yAnchor를 1.6으로 주어 마커 머리 바로 위에 카드가 밀착되도록 설정
                         tempCustomOverlay = new kakao.maps.CustomOverlay({
                             position: latLng,
                             content: content,
-                            yAnchor: 1
+                            yAnchor: 1.6
                         });
                         tempCustomOverlay.setMap(map);
 
@@ -429,7 +427,6 @@
             });
         });
 
-        // 우클릭 마커 위 팝업에서 '출조 기록 추가하기'를 눌렀을 때만 패널 오픈
         function openPanelFromTempMarker() {
             if (tempCustomOverlay) {
                 tempCustomOverlay.setMap(null);
@@ -441,7 +438,6 @@
             openPanel();
         }
 
-        // 임시 마커 취소/지우기
         function clearTempMarker() {
             if (window.tempMarker) {
                 window.tempMarker.setMap(null);
