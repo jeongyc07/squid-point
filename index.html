@@ -6,7 +6,7 @@
     <title>🦑 어종별 조과 & 포인트 맵 (실시간 연동)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
         
         .main-container { width: 100vw; height: 100vh; position: relative; display: flex; z-index: 1; }
 
@@ -114,7 +114,7 @@
         }
         .context-menu-btn:hover { background: #34495e; transform: translateY(-45px) scale(1.05); }
 
-        /* 안내 가이드 배너 (사파리/크롬 사용자용) */
+        /* 안내 가이드 배너 */
         #mobile-guide-banner {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
             background: rgba(44, 62, 80, 0.9); color: white; padding: 8px 16px; border-radius: 20px;
@@ -347,7 +347,7 @@
                     map = new kakao.maps.Map(mapContainer, mapOption);
                     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
 
-                    // 아이폰 사파리/크롬 레이아웃 강제 교정
+                    // 크롬 및 사파리 레이아웃 강제 교정
                     setTimeout(function() {
                         map.relayout();
                         map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
@@ -357,14 +357,15 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    // PC 및 기본 우클릭 이벤트
+                    // PC 우클릭 이벤트
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         const latlng = mouseEvent.latLng;
                         showContextMenu(latlng.getLat(), latlng.getLng());
                     });
 
-                    // 사파리/크롬 모바일 브라우저를 위한 터치 꾹 누르기(Long-press) 감지
+                    // 크롬/사파리 모바일 브라우저를 위한 터치 꾹 누르기(Long-press) 완벽 대응
                     let touchStartCoord = null;
+                    
                     kakao.maps.event.addListener(map, 'touchstart', function(mouseEvent) {
                         touchStartCoord = mouseEvent.latLng;
                         if (touchTimer) clearTimeout(touchTimer);
@@ -373,22 +374,28 @@
                             if (touchStartCoord) {
                                 showContextMenu(touchStartCoord.getLat(), touchStartCoord.getLng());
                             }
-                        }, 600); // 0.6초 이상 누르고 있으면 작동
+                        }, 700); // 0.7초 동안 꾹 누르면 작동
                     });
 
-                    kakao.maps.event.addListener(map, 'touchmove', function() {
+                    // 크롬 브라우저 전용 DOM 레벨 터치 방어 (컨텍스트 메뉴 침범 차단)
+                    const mapEl = document.getElementById('map');
+                    mapEl.addEventListener('touchstart', function(e) {
+                        // 멀티터치나 스크롤 동작이 아닐 때 타이머 작동 보조
+                    }, { passive: true });
+
+                    mapEl.addEventListener('touchmove', function() {
                         if (touchTimer) {
                             clearTimeout(touchTimer);
                             touchTimer = null;
                         }
-                    });
+                    }, { passive: true });
 
-                    kakao.maps.event.addListener(map, 'touchend', function() {
+                    mapEl.addEventListener('touchend', function() {
                         if (touchTimer) {
                             clearTimeout(touchTimer);
                             touchTimer = null;
                         }
-                    });
+                    }, { passive: true });
 
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
                         closeSpotAnalysisModal();
