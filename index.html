@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (실시간 연동)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (우클릭 마커 생성)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -29,6 +29,23 @@
         #map-wrapper { flex-grow: 1; height: 100%; position: relative; z-index: 2; }
         #map { width: 100%; height: 100%; background-color: #eee; }
 
+        /* 지도 위 커스텀 오버레이 (우클릭 시 마커 위에 뜨는 카드) */
+        .map-popup-card {
+            background: white; padding: 12px 15px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            border: 2px solid #3498db; display: flex; flex-direction: column; gap: 8px; width: 220px;
+            transform: translate(-50%, -110%); position: relative; font-size: 12px;
+        }
+        .map-popup-card::after {
+            content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+            border-width: 8px 8px 0; border-style: solid; border-color: #3498db transparent; display: block; width: 0;
+        }
+        .map-popup-title { font-weight: bold; color: #2c3e50; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .map-popup-add-btn {
+            background: #3498db; color: white; border: none; padding: 8px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; text-align: center; font-size: 12px; transition: background 0.2s;
+        }
+        .map-popup-add-btn:hover { background: #2980b9; }
+
         /* 우측 조과 기록 패널 */
         #record-panel {
             position: absolute; right: 0; top: 0; width: 380px; max-width: 100%; height: 100%;
@@ -43,7 +60,6 @@
         .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 5px; }
         .close-btn:hover { color: #333; }
 
-        /* 우측 패널 분석 버튼 그룹 */
         .analysis-btn-group { display: flex; gap: 8px; }
         .spawn-analysis-btn {
             flex: 1; background: #27ae60; color: white; border: none; padding: 10px 6px; border-radius: 6px;
@@ -64,9 +80,7 @@
 
         .form-group { margin-bottom: 2px; }
         .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; }
-        .form-group input { 
-            width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; 
-        }
+        .form-group input { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
 
         #lunar-display {
             font-size: 11px; color: #e67e22; font-weight: bold; margin-top: 4px; background: #fcf8f2; padding: 6px 8px; border-radius: 4px; border: 1px solid #fae5d3;
@@ -140,7 +154,6 @@
         .modal-close-btn { background: #95a5a6; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; }
         .modal-close-btn:hover { background: #7f8c8d; }
 
-        /* 스마트폰 화면 최적화 (하단 메뉴바 배치) */
         @media (max-width: 768px) {
             .main-container { flex-direction: column-reverse; }
             #species-sidebar { width: 100%; height: 65px; flex-direction: row; justify-content: center; padding: 0; gap: 10px; }
@@ -179,7 +192,6 @@
                 <button class="close-btn" onclick="closePanel()">✕</button>
             </div>
             
-            <!-- 우측 패널 분석 버튼 그룹 -->
             <div class="analysis-btn-group">
                 <button class="spawn-analysis-btn" onclick="openSeasonAnalysisModal('spawning')">
                     🌸 산란시즌 분석
@@ -189,7 +201,6 @@
                 </button>
             </div>
 
-            <!-- 입력/수정 폼 섹션 -->
             <div class="form-section" id="form-section-container" style="display: none;">
                 <h3 id="form-mode-title">📌 새로운 출조 기록 추가</h3>
                 <div class="form-group">
@@ -206,7 +217,6 @@
                     </div>
                 </div>
 
-                <!-- 수온 입력 (최저/최고 분리) -->
                 <div class="temp-row">
                     <div class="form-group">
                         <label>최저수온</label>
@@ -254,16 +264,14 @@
                 <h3 id="modal-main-title">📈 포인트 시즌 분석 리포트</h3>
                 <button class="close-btn" style="color:white;" onclick="closeSpotAnalysisModal()">✕</button>
             </div>
-            <div class="analysis-modal-body" id="spot-analysis-body-content">
-                <!-- 분석 내용 동적 생성 -->
-            </div>
+            <div class="analysis-modal-body" id="spot-analysis-body-content"></div>
             <div class="analysis-modal-footer">
                 <button class="modal-close-btn" onclick="closeSpotAnalysisModal()">닫기</button>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK (Modular CDN 버전) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -299,11 +307,12 @@
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
             cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', markers: {} },
-            yellowtail: { name: '방어/부시리', dbKey: '방어/부시리', unit: '마리', markers: {} }
+            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', markers: {} }
         };
 
         let spotsData = {};       
         let editingRecordId = null; 
+        let tempCustomOverlay = null; // 우클릭 시 마커 위에 뜨는 카드 오버레이
 
         window.addEventListener("DOMContentLoaded", function() {
             if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -323,6 +332,11 @@
                     map = new kakao.maps.Map(mapContainer, mapOption);
                     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
 
+                    // 브라우저 기본 우클릭 메뉴 차단
+                    mapContainer.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                    });
+
                     setTimeout(function() {
                         map.relayout();
                         map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
@@ -332,39 +346,55 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    // [마우스 우클릭 이벤트] 지도 위에 즉시 포인트(마커) 생성 및 패널 오픈
+                    // [마우스 우클릭 이벤트] 패널을 바로 열지 않고, 마커와 '기록 추가' 카드를 띄움
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
+                        closePanel(); // 기존 열려있던 패널 닫기
+
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
                         selectedLng = latLng.getLng();
 
-                        // 새로운 고유 ID 생성
                         currentSpotId = 'spot_' + Date.now();
                         
-                        // 기존에 임시로 떠있던 마커가 있다면 제거
+                        // 기존 임시 마커 및 카드 제거
                         if (window.tempMarker) {
                             window.tempMarker.setMap(null);
                         }
+                        if (tempCustomOverlay) {
+                            tempCustomOverlay.setMap(null);
+                        }
 
-                        // 즉시 지도에 임시 마커 표시
+                        // 임시 마커 생성
                         window.tempMarker = new kakao.maps.Marker({
                             position: latLng,
                             map: map
                         });
 
-                        // spotsData에 임시 등록
+                        // 마커 위에 띄울 HTML 카드 생성
+                        const content = document.createElement('div');
+                        content.className = 'map-popup-card';
+                        content.innerHTML = `
+                            <div class="map-popup-title">
+                                <span>📍 새 포인트</span>
+                                <span style="cursor:pointer; color:#888;" onclick="clearTempMarker()">✕</span>
+                            </div>
+                            <button class="map-popup-add-btn" onclick="openPanelFromTempMarker()">출조 기록 추가하기</button>
+                        `;
+
+                        tempCustomOverlay = new kakao.maps.CustomOverlay({
+                            position: latLng,
+                            content: content,
+                            yAnchor: 1
+                        });
+                        tempCustomOverlay.setMap(map);
+
                         spotsData[currentSpotId] = {
                             lat: selectedLat,
                             lng: selectedLng,
                             records: [],
                             marker: window.tempMarker
                         };
-
-                        resetFormMode();
-                        document.getElementById('form-section-container').style.display = "flex";
-                        renderSpotRecords();
-                        openPanel();
                     });
 
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
@@ -380,6 +410,8 @@
                                 closeSpotAnalysisModal();
                             } else if (recordPanel.classList.contains('open')) {
                                 closePanel();
+                            } else {
+                                clearTempMarker();
                             }
                         }
                     });
@@ -397,10 +429,38 @@
             });
         });
 
+        // 우클릭 마커 위 팝업에서 '출조 기록 추가하기'를 눌렀을 때만 패널 오픈
+        function openPanelFromTempMarker() {
+            if (tempCustomOverlay) {
+                tempCustomOverlay.setMap(null);
+                tempCustomOverlay = null;
+            }
+            resetFormMode();
+            document.getElementById('form-section-container').style.display = "flex";
+            renderSpotRecords();
+            openPanel();
+        }
+
+        // 임시 마커 취소/지우기
+        function clearTempMarker() {
+            if (window.tempMarker) {
+                window.tempMarker.setMap(null);
+                window.tempMarker = null;
+            }
+            if (tempCustomOverlay) {
+                tempCustomOverlay.setMap(null);
+                tempCustomOverlay = null;
+            }
+            if (currentSpotId && spotsData[currentSpotId] && spotsData[currentSpotId].records.length === 0) {
+                delete spotsData[currentSpotId];
+            }
+            closePanel();
+        }
+
         function switchSpecies(speciesKey, btnElement) {
             closePanel();
             closeSpotAnalysisModal();
-            if (window.tempMarker) { window.tempMarker.setMap(null); window.tempMarker = null; }
+            clearTempMarker();
 
             currentSpecies = speciesKey;
 
@@ -424,10 +484,7 @@
                     }
                 }
             }
-            if (window.tempMarker) {
-                window.tempMarker.setMap(null);
-                window.tempMarker = null;
-            }
+            clearTempMarker();
         }
 
         function loadSpeciesData(speciesKey) {
@@ -522,10 +579,6 @@
 
         function closePanel() {
             document.getElementById('record-panel').classList.remove('open');
-            if (window.tempMarker) {
-                window.tempMarker.setMap(null);
-                window.tempMarker = null;
-            }
             resetFormMode();
             setTimeout(() => { if(map) map.relayout(); }, 300);
         }
@@ -577,7 +630,6 @@
                 };
                 spot.records.push(newRecord);
 
-                // 정식 등록 완료 시 임시 마커를 일반 관리 마커로 전환
                 if (window.tempMarker) {
                     spot.marker = window.tempMarker;
                     window.tempMarker = null;
@@ -598,7 +650,7 @@
 
             kakao.maps.event.addListener(spot.marker, 'click', function() {
                 closeSpotAnalysisModal();
-                if (window.tempMarker) { window.tempMarker.setMap(null); window.tempMarker = null; }
+                clearTempMarker();
                 currentSpotId = spotId;
                 selectedLat = spot.lat;
                 selectedLng = spot.lng;
