@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦑 어종별 조과 & 포인트 맵 (실시간 연동)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; }
+        
+        .main-container { width: 100vw; height: 100vh; position: relative; display: flex; }
+
+        /* 좌측 어종 선택 메뉴바 */
+        #species-sidebar {
+            width: 80px; background: #2c3e50; height: 100%; z-index: 20;
+            display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 15px;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.15);
+        }
+        .species-btn {
+            width: 60px; height: 60px; background: #34495e; border: none; border-radius: 12px;
+            color: #bdc3c7; font-size: 11px; font-weight: bold; cursor: pointer; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;
+        }
+        .species-btn span:first-child { font-size: 20px; }
+        .species-btn:hover { background: #4e6d8d; color: white; }
+        .species-btn.active { background: #3498db; color: white; box-shadow: 0 4px 10px rgba(52, 152, 219, 0.4); }
+
+        #map-wrapper { flex-grow: 1; height: 100%; position: relative; }
+        #map { width: 100%; height: 100%; background-color: #eee; }
+
+        /* 우측 조과 기록 패널 */
+        #record-panel {
+            position: absolute; right: 0; top: 0; width: 380px; height: 100%;
+            background: #ffffff; border-left: 1px solid #ddd; box-shadow: -4px 0 15px rgba(0,0,0,0.15);
+            z-index: 10; padding: 25px; display: flex; flex-direction: column; gap: 15px;
+            transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto;
+        }
+        #record-panel.open { transform: translateX(0); }
+
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .panel-header h2 { font-size: 18px; color: #2c3e50; }
+        .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; }
+        .close-btn:hover { color: #333; }
+
+        /* 우측 패널 분석 버튼 그룹 */
+        .analysis-btn-group { display: flex; gap: 8px; }
+        .spawn-analysis-btn {
+            flex: 1; background: #27ae60; color: white; border: none; padding: 10px 6px; border-radius: 6px;
+            font-size: 12px; font-weight: bold; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; white-space: nowrap;
+        }
+        .spawn-analysis-btn:hover { background: #219653; }
+
+        .main-analysis-btn {
+            flex: 1; background: #d35400; color: white; border: none; padding: 10px 6px; border-radius: 6px;
+            font-size: 12px; font-weight: bold; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; white-space: nowrap;
+        }
+        .main-analysis-btn:hover { background: #ba4a00; }
+
+        .form-section { background: #fdfefe; border: 1px solid #ebedef; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        .form-section h3 { font-size: 13px; color: #2980b9; margin-bottom: 2px; }
+
+        .form-group { margin-bottom: 2px; }
+        .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; }
+        .form-group input { 
+            width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; 
+        }
+
+        #lunar-display {
+            font-size: 11px; color: #e67e22; font-weight: bold; margin-top: 4px; background: #fcf8f2; padding: 6px 8px; border-radius: 4px; border: 1px solid #fae5d3;
+        }
+
+        .catch-input-wrapper { display: flex; align-items: center; gap: 8px; }
+        .catch-input-wrapper input { text-align: right; font-weight: bold; font-size: 15px; color: #2980b9; }
+        .catch-unit { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
+
+        .temp-row { display: flex; gap: 8px; }
+        .temp-row .form-group { flex: 1; }
+
+        .action-btn-group { display: flex; gap: 5px; margin-top: 5px; }
+        .save-btn { 
+            flex: 1; background: #3498db; color: white; border: none; padding: 10px; 
+            border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; 
+        }
+        .save-btn:hover { background: #2980b9; }
+        .cancel-edit-btn { 
+            background: #95a5a6; color: white; border: none; padding: 10px; 
+            border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; display: none;
+        }
+        .cancel-edit-btn:hover { background: #7f8c8d; }
+
+        .record-list-section { margin-top: 5px; border-top: 1px solid #eee; padding-top: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+        .record-list-section h3 { font-size: 13px; color: #333; }
+        #saved-list { list-style: none; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .saved-item { 
+            background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px; border-radius: 6px; font-size: 12px; 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+        .saved-item-info { line-height: 1.5; color: #444; }
+        .item-btn-group { display: flex; gap: 4px; }
+        .edit-record-btn { background: #f39c12; color: white; border: none; padding: 5px 7px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .edit-record-btn:hover { background: #d68910; }
+        .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 5px 7px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .delete-record-btn:hover { background: #c0392b; }
+
+        /* 우클릭 시 나타나는 커스텀 컨텍스트 메뉴 버튼 스타일 */
+        .context-menu-btn {
+            background: #2c3e50; color: white; border: 2px solid #ffffff; padding: 8px 14px; border-radius: 20px;
+            font-size: 13px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-38px); cursor: pointer;
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        .context-menu-btn:hover { background: #34495e; transform: translateY(-40px) scale(1.05); }
+
+        /* 패턴 분석 모달 스타일 */
+        #spot-analysis-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5);
+            z-index: 100; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        #spot-analysis-modal.open { opacity: 1; pointer-events: auto; }
+        .analysis-modal-content {
+            background: white; width: 480px; max-width: 90%; max-height: 85vh; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden;
+        }
+        .analysis-modal-header { background: #27ae60; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .analysis-modal-header.main-season-header { background: #d35400; }
+        .analysis-modal-header h3 { font-size: 16px; }
+
+        .analysis-modal-body { padding: 20px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: #333; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
+        
+        .analysis-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .analysis-card h4 { font-size: 13px; color: #2c3e50; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .analysis-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+        .analysis-row span:last-child { font-weight: bold; color: #27ae60; }
+        .analysis-card.main-card .analysis-row span:last-child { color: #d35400; }
+        
+        .best-combo-box {
+            background: linear-gradient(135deg, #e8f8f5, #d4efdf); border: 1px solid #a3e4d7; border-radius: 8px; padding: 12px;
+            color: #0e6251; font-size: 12px; line-height: 1.5; margin-bottom: 4px;
+        }
+        .best-combo-box.main-combo {
+            background: linear-gradient(135deg, #fef5e7, #fdebd0); border: 1px solid #f8c471; color: #7e5109;
+        }
+        .best-combo-title { font-weight: bold; font-size: 13px; margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
+
+        .analysis-modal-footer { padding: 12px 20px; display: flex; justify-content: flex-end; background: white; border-top: 1px solid #ddd; }
+        .modal-close-btn { background: #95a5a6; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; }
+        .modal-close-btn:hover { background: #7f8c8d; }
+
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column-reverse; }
+            #species-sidebar { width: 100%; height: 70px; flex-direction: row; justify-content: center; padding: 0; gap: 10px; }
+            .species-btn { width: 30%; height: 50px; flex-direction: row; gap: 6px; font-size: 12px; }
+            #map-wrapper { height: calc(100vh - 70px); }
+            #record-panel { width: 100%; }
+        }
+    </style>
+
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=9f9339f1c455ac084a23d987ceb30e56&autoload=false"></script>
+</head>
+<body>
+
+    <div class="main-container">
+        <div id="species-sidebar">
+            <button class="species-btn active" onclick="switchSpecies('squid', this)">
+                <span>🦑</span>무늬
+            </button>
+            <button class="species-btn" onclick="switchSpecies('cuttlefish', this)">
+                <span>🦪</span>갑오징어
+            </button>
+            <button class="species-btn" onclick="switchSpecies('yellowtail', this)">
+                <span>🐟</span>방어/부시리
+            </button>
+        </div>
+
+        <div id="map-wrapper">
+            <div id="map"></div>
+        </div>
+
+        <div id="record-panel" class="record-panel">
+            <div class="panel-header">
+                <h2 id="panel-title">🦑 무늬오징어 조과 및 관리</h2>
+                <button class="close-btn" onclick="closePanel()">✕</button>
+            </div>
+            
+            <div class="analysis-btn-group">
+                <button class="spawn-analysis-btn" onclick="openSeasonAnalysisModal('spawning')">
+                    🌸 산란시즌 분석
+                </button>
+                <button class="main-analysis-btn" onclick="openSeasonAnalysisModal('main')">
+                    ☀️ 본시즌 분석
+                </button>
+            </div>
+
+            <div class="form-section" id="form-section-container" style="display: none;">
+                <h3 id="form-mode-title">📌 새로운 출조 기록 추가</h3>
+                <div class="form-group">
+                    <label>양력 날짜 선택</label>
+                    <input type="date" id="record-date" onchange="onDateChange()">
+                    <div id="lunar-display">음력: -</div>
+                </div>
+
+                <div class="form-group">
+                    <label>물때 입력</label>
+                    <div class="catch-input-wrapper">
+                        <input type="number" id="tide-input" min="1" max="15" placeholder="">
+                        <span class="catch-unit">물</span>
+                    </div>
+                </div>
+
+                <div class="temp-row">
+                    <div class="form-group">
+                        <label>최저수온</label>
+                        <div class="catch-input-wrapper">
+                            <input type="number" id="water-temp-min" step="0.1" placeholder="">
+                            <span class="catch-unit">℃</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>최고수온</label>
+                        <div class="catch-input-wrapper">
+                            <input type="number" id="water-temp-max" step="0.1" placeholder="">
+                            <span class="catch-unit">℃</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>조과 (마릿수)</label>
+                    <div class="catch-input-wrapper">
+                        <input type="number" id="catch-count" min="0" placeholder="">
+                        <span class="catch-unit" id="catch-unit-label">마리</span>
+                    </div>
+                </div>
+
+                <div class="action-btn-group">
+                    <button class="save-btn" id="save-action-btn" onclick="saveRecord()">기록 추가하기</button>
+                    <button class="cancel-edit-btn" id="cancel-edit-btn" onclick="resetFormMode()">취소</button>
+                </div>
+            </div>
+
+            <div class="record-list-section">
+                <h3>📋 이 장소의 출조 내역 (<span id="place-total-count">0</span>회)</h3>
+                <ul id="saved-list">
+                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">지도를 우클릭하여 새로운 포인트를 생성해보세요.</div>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="spot-analysis-modal">
+        <div class="analysis-modal-content">
+            <div class="analysis-modal-header" id="modal-header-container">
+                <h3 id="modal-main-title">📈 포인트 시즌 분석 리포트</h3>
+                <button class="close-btn" style="color:white;" onclick="closeSpotAnalysisModal()">✕</button>
+            </div>
+            <div class="analysis-modal-body" id="spot-analysis-body-content">
+                </div>
+            <div class="analysis-modal-footer">
+                <button class="modal-close-btn" onclick="closeSpotAnalysisModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // 사용자 제공 파이어베이스 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyAfco08ZKb0Z8JWZOag5f5JIEpGDIJ2L0o",
+            authDomain: "squid-point.firebaseapp.com",
+            projectId: "squid-point",
+            storageBucket: "squid-point.firebasestorage.app",
+            messagingSenderId: "888773240658",
+            appId: "1:888773240658:web:b87ea601cb54f5daddbc8b",
+            measurementId: "G-34DCZEBCG3",
+            databaseURL: "https://squid-point-default-rtdb.firebaseio.com/"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 전역 변수 노출 (다른 일반 스크립트 함수들이 접근할 수 있도록 window에 등록)
+        window.db = db;
+        window.ref = ref;
+        window.set = set;
+        window.onValue = onValue;
+        window.remove = remove;
+
+        // 파이어베이스 연동 완료 후 지도 및 데이터 로드 시작 신호 발송
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+
+    <script>
+        let map;
+        let selectedLat = 34.31, selectedLng = 126.75; 
+        let currentSpecies = 'squid'; 
+        let currentSpotId = null; 
+        let allSpeciesData = {
+            squid: { name: '무늬오징어', dbKey: 'squid', unit: '마리', markers: {} },
+            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish', unit: '마리', markers: {} },
+            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail', unit: '마리', markers: {} }
+        };
+
+        let spotsData = {};       
+        let editingRecordId = null; 
+        let tempMarker = null; 
+        let contextOverlay = null; 
+        let currentDbListener = null; // 실시간 리스너 해제용
+
+        window.addEventListener("DOMContentLoaded", function() {
+            if (typeof kakao === 'undefined' || !kakao.maps) {
+                alert("카카오 지도 SDK를 불러오지 못했습니다.");
+                return;
+            }
+
+            kakao.maps.load(function() {
+                try {
+                    const mapContainer = document.getElementById('map');
+                    const mapOption = { 
+                        center: new kakao.maps.LatLng(selectedLat, selectedLng), 
+                        level: 11, 
+                        mapTypeId: kakao.maps.MapTypeId.HYBRID 
+                    };
+
+                    map = new kakao.maps.Map(mapContainer, mapOption);
+                    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+
+                    setTimeout(function() {
+                        map.relayout();
+                    }, 500);
+
+                    // 파이어베이스 모듈 로드가 완료되면 데이터 실시간 구독 시작
+                    window.addEventListener('firebase-ready', function() {
+                        loadSpeciesData(currentSpecies);
+                    });
+
+                    kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
+                        const latlng = mouseEvent.latLng;
+                        showContextMenu(latlng.getLat(), latlng.getLng());
+                    });
+
+                    kakao.maps.event.addListener(map, 'dragstart', function() {
+                        removeContextMenu();
+                    });
+
+                    kakao.maps.event.addListener(map, 'click', function() {
+                        closeSpotAnalysisModal();
+                    });
+
+                    document.addEventListener('keydown', function(event) {
+                        if (event.key === 'Escape') {
+                            const analysisModal = document.getElementById('spot-analysis-modal');
+                            const recordPanel = document.getElementById('record-panel');
+
+                            if (analysisModal.classList.contains('open')) {
+                                closeSpotAnalysisModal();
+                            } else if (recordPanel.classList.contains('open')) {
+                                closePanel();
+                            } else {
+                                removeContextMenu();
+                            }
+                        }
+                    });
+
+                    const analysisModal = document.getElementById('spot-analysis-modal');
+                    analysisModal.addEventListener('click', function(event) {
+                        if (event.target === analysisModal) {
+                            closeSpotAnalysisModal();
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("지도 초기화 중 오류 발생:", error);
+                }
+            });
+        });
+
+        function switchSpecies(speciesKey, btnElement) {
+            closePanel();
+            removeContextMenu();
+            closeSpotAnalysisModal();
+
+            currentSpecies = speciesKey;
+
+            document.querySelectorAll('.species-btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+
+            const speciesInfo = allSpeciesData[currentSpecies];
+            document.getElementById('panel-title').innerText = `🦑 ${speciesInfo.name} 조과 및 관리`;
+            document.getElementById('catch-unit-label').innerText = speciesInfo.unit;
+
+            clearAllMarkersFromMap();
+            loadSpeciesData(currentSpecies);
+        }
+
+        function clearAllMarkersFromMap() {
+            for (let sKey in allSpeciesData) {
+                let dataObj = allSpeciesData[sKey].markers;
+                for (let id in dataObj) {
+                    if (dataObj[id].marker) {
+                        dataObj[id].marker.setMap(null);
+                    }
+                }
+            }
+        }
+
+        // --- 파이어베이스 실시간 데이터 로드 (실시간 동기화) ---
+        function loadSpeciesData(speciesKey) {
+            if (!window.db) return;
+
+            const speciesInfo = allSpeciesData[speciesKey];
+            const dbRef = window.ref(window.db, 'fishing_spots/' + speciesInfo.dbKey);
+
+            // 이전 리스너가 있다면 중복 방지를 위해 해제
+            if (currentDbListener) {
+                // Firebase modular SDK는 onValue 해제를 위해 off 처럼 동작하는 함수를 사용하거나 새로 등록 관리 가능
+            }
+
+            window.onValue(dbRef, (snapshot) => {
+                // 기존 마커 지도에서 제거
+                clearAllMarkersFromMap();
+
+                spotsData = {};
+                speciesInfo.markers = {};
+
+                const parsedData = snapshot.val();
+                if (!parsedData) return;
+
+                for (let id in parsedData) {
+                    let item = parsedData[id];
+                    let marker = new kakao.maps.Marker({
+                        position: new kakao.maps.LatLng(item.lat, item.lng),
+                        map: map
+                    });
+
+                    spotsData[id] = {
+                        lat: item.lat,
+                        lng: item.lng,
+                        records: item.records || [],
+                        marker: marker
+                    };
+                    speciesInfo.markers[id] = spotsData[id];
+
+                    setupMarkerEvents(id);
+                }
+
+                // 만약 현재 우측 패널이 열려있고 특정 포인트를 보고 있다면 리스트 실시간 갱신
+                if (currentSpotId && spotsData[currentSpotId]) {
+                    renderSpotRecords();
+                } else if (currentSpotId && !spotsData[currentSpotId]) {
+                    closePanel();
+                }
+            });
+        }
+
+        // --- 파이어베이스에 데이터 저장 ---
+        function saveSpotsToStorage() {
+            if (!window.db) return;
+
+            let storageData = {};
+            for (let id in spotsData) {
+                storageData[id] = {
+                    lat: spotsData[id].lat,
+                    lng: spotsData[id].lng,
+                    records: spotsData[id].records
+                };
+            }
+            const speciesInfo = allSpeciesData[currentSpecies];
+            const dbRef = window.ref(window.db, 'fishing_spots/' + speciesInfo.dbKey);
+            
+            window.set(dbRef, storageData).catch((error) => {
+                console.error("Firebase 저장 실패:", error);
+                alert("데이터 저장 중 오류가 발생했습니다.");
+            });
+        }
+
+        function showContextMenu(lat, lng) {
+            removeContextMenu();
+
+            const position = new kakao.maps.LatLng(lat, lng);
+            tempMarker = new kakao.maps.Marker({
+                position: position,
+                map: map
+            });
+
+            const content = `
+                <div class="context-menu-btn" onclick="addNewSpotFromContext(${lat}, ${lng})">
+                    📌 새로운 출조기록 추가
+                </div>
+            `;
+
+            contextOverlay = new kakao.maps.CustomOverlay({
+                position: position,
+                content: content,
+                yAnchor: 1
+            });
+            contextOverlay.setMap(map);
+        }
+
+        function removeContextMenu() {
+            if (contextOverlay) {
+                contextOverlay.setMap(null);
+                contextOverlay = null;
+            }
+            if (tempMarker) {
+                tempMarker.setMap(null);
+                tempMarker = null;
+            }
+        }
+
+        function addNewSpotFromContext(lat, lng) {
+            if (contextOverlay) {
+                contextOverlay.setMap(null);
+                contextOverlay = null;
+            }
+
+            let matchedSpotId = null;
+            let closestDist = 0.00027; 
+
+            for (let id in spotsData) {
+                let spot = spotsData[id];
+                let dist = Math.abs(spot.lat - lat) + Math.abs(spot.lng - lng);
+                if (dist < closestDist) { 
+                    closestDist = dist;
+                    matchedSpotId = id;
+                }
+            }
+
+            if (matchedSpotId) {
+                if (tempMarker) {
+                    tempMarker.setMap(null);
+                    tempMarker = null;
+                }
+                currentSpotId = matchedSpotId;
+                selectedLat = spotsData[matchedSpotId].lat;
+                selectedLng = spotsData[matchedSpotId].lng;
+            } else {
+                currentSpotId = 'spot_' + Date.now();
+                selectedLat = lat;
+                selectedLng = lng;
+                
+                spotsData[currentSpotId] = {
+                    lat: selectedLat,
+                    lng: selectedLng,
+                    records: [],
+                    marker: tempMarker 
+                };
+                setupMarkerEvents(currentSpotId);
+                tempMarker = null; 
+            }
+
+            document.getElementById('form-section-container').style.display = "flex";
+            resetFormMode();
+            document.getElementById('record-date').value = new Date().toISOString().split('T')[0];
+            onDateChange();
+            renderSpotRecords();
+            openPanel();
+        }
+
+        function onDateChange() {
+            const dateVal = document.getElementById('record-date').value;
+            if (!dateVal) return;
+
+            try {
+                const targetDate = new Date(dateVal);
+                const lunarFormatter = new Intl.DateTimeFormat('ko-KR', {
+                    calendar: 'chinese',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                let lunarText = lunarFormatter.format(targetDate);
+                lunarText = lunarText.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
+
+                document.getElementById('lunar-display').innerHTML = `🌙 음력 ${lunarText}`;
+            } catch (e) {
+                document.getElementById('lunar-display').innerHTML = `🌙 음력 변환 오류`;
+            }
+        }
+
+        function openPanel() {
+            document.getElementById('record-panel').classList.add('open');
+        }
+
+        function closePanel() {
+            if (currentSpotId && spotsData[currentSpotId] && spotsData[currentSpotId].records.length === 0) {
+                if (spotsData[currentSpotId].marker) {
+                    spotsData[currentSpotId].marker.setMap(null);
+                }
+                delete spotsData[currentSpotId];
+                saveSpotsToStorage();
+            }
+            document.getElementById('record-panel').classList.remove('open');
+            resetFormMode();
+        }
+
+        function saveRecord() {
+            const date = document.getElementById('record-date').value;
+            const lunarText = document.getElementById('lunar-display').innerText.replace('🌙 음력 ', '');
+            const tide = document.getElementById('tide-input').value.trim();
+            const waterTempMin = document.getElementById('water-temp-min').value.trim();
+            const waterTempMax = document.getElementById('water-temp-max').value.trim();
+            const count = document.getElementById('catch-count').value.trim();
+
+            if (!count) {
+                alert("조과(마릿수)를 숫자만 입력해주세요!");
+                document.getElementById('catch-count').focus();
+                return;
+            }
+
+            const spot = spotsData[currentSpotId];
+
+            if (editingRecordId) {
+                const record = spot.records.find(r => r.id === editingRecordId);
+                if (record) {
+                    record.date = date;
+                    record.lunar = lunarText;
+                    record.tide = tide;
+                    record.waterTempMin = waterTempMin;
+                    record.waterTempMax = waterTempMax;
+                    record.count = count;
+                }
+            } else {
+                const newRecord = {
+                    id: Date.now(),
+                    date: date,
+                    lunar: lunarText,
+                    tide: tide,
+                    waterTempMin: waterTempMin,
+                    waterTempMax: waterTempMax,
+                    count: count
+                };
+                spot.records.push(newRecord);
+            }
+
+            saveSpotsToStorage(); 
+            resetFormMode();
+            renderSpotRecords();
+        }
+
+        function setupMarkerEvents(spotId) {
+            const spot = spotsData[spotId];
+            if (!spot || !spot.marker) return;
+
+            kakao.maps.event.addListener(spot.marker, 'click', function() {
+                closeSpotAnalysisModal();
+                currentSpotId = spotId;
+                document.getElementById('form-section-container').style.display = "none";
+                renderSpotRecords();
+                openPanel();
+            });
+
+            kakao.maps.event.addListener(spot.marker, 'rightclick', function() {
+                showContextMenu(spot.lat, spot.lng);
+            });
+        }
+
+        function renderSpotRecords() {
+            const spot = spotsData[currentSpotId];
+            if (!spot) return;
+
+            const listContainer = document.getElementById('saved-list');
+            document.getElementById('place-total-count').innerText = spot.records.length;
+
+            if (spot.records.length === 0) {
+                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 우클릭하여 기록을 추가해보세요!</div>`;
+                return;
+            }
+
+            spot.records.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const unit = allSpeciesData[currentSpecies].unit;
+            let html = '';
+            spot.records.forEach(item => {
+                let tideStr = item.tide ? `물때: ${item.tide}물` : '물때: -';
+                let tempStr = '수온: -';
+                if (item.waterTempMin || item.waterTempMax) {
+                    let minVal = item.waterTempMin ? item.waterTempMin + '℃' : '?';
+                    let maxVal = item.waterTempMax ? item.waterTempMax + '℃' : '?';
+                    tempStr = `수온: ${minVal} ~ ${maxVal}`;
+                }
+
+                html += `
+                    <li class="saved-item">
+                        <div class="saved-item-info">
+                            <b>${item.date}(음력 ${item.lunar})</b><br>
+                            ${tideStr} / ${tempStr}<br>
+                            🎣 <b>${item.count}${unit}</b>
+                        </div>
+                        <div class="item-btn-group">
+                            <button class="edit-record-btn" onclick="startEditRecord(${item.id})">수정</button>
+                            <button class="delete-record-btn" onclick="deleteRecord(${item.id})">삭제</button>
+                        </div>
+                    </li>
+                `;
+            });
+            listContainer.innerHTML = html;
+        }
+
+        function startEditRecord(recordId) {
+            document.getElementById('form-section-container').style.display = "flex";
+
+            const spot = spotsData[currentSpotId];
+            const record = spot.records.find(r => r.id === recordId);
+            if (!record) return;
+
+            editingRecordId = recordId;
+            document.getElementById('record-date').value = record.date;
+            document.getElementById('tide-input').value = record.tide || '';
+            document.getElementById('water-temp-min').value = record.waterTempMin || '';
+            document.getElementById('water-temp-max').value = record.waterTempMax || '';
+            document.getElementById('catch-count').value = record.count;
+            onDateChange();
+
+            document.getElementById('form-mode-title').innerText = "✏️ 출조 기록 수정 중";
+            document.getElementById('save-action-btn').innerText = "수정 내용 저장";
+            document.getElementById('cancel-edit-btn').style.display = "block";
+        }
+
+        function resetFormMode() {
+            editingRecordId = null;
+            document.getElementById('record-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('tide-input').value = '';
+            document.getElementById('water-temp-min').value = '';
+            document.getElementById('water-temp-max').value = '';
+            document.getElementById('catch-count').value = '';
+            onDateChange();
+
+            document.getElementById('form-mode-title').innerText = "📌 새로운 출조 기록 추가";
+            document.getElementById('save-action-btn').innerText = "기록 추가하기";
+            document.getElementById('cancel-edit-btn').style.display = "none";
+        }
+
+        function deleteRecord(recordId) {
+            if (!confirm("이 출조 기록을 삭제하시겠습니까?")) return;
+
+            const spot = spotsData[currentSpotId];
+            spot.records = spot.records.filter(r => r.id !== recordId);
+
+            resetFormMode();
+            renderSpotRecords();
+            saveSpotsToStorage(); 
+
+            if (spot.records.length === 0) {
+                if (spot.marker) spot.marker.setMap(null);
+                delete spotsData[currentSpotId];
+                saveSpotsToStorage();
+                closePanel();
+            }
+        }
+
+        function openSeasonAnalysisModal(seasonType) {
+            const modal = document.getElementById('spot-analysis-modal');
+            const bodyContent = document.getElementById('spot-analysis-body-content');
+            const headerContainer = document.getElementById('modal-header-container');
+            const speciesName = allSpeciesData[currentSpecies].name;
+            const unit = allSpeciesData[currentSpecies].unit;
+
+            let seasonName = seasonType === 'spawning' ? '산란시즌 (4~7월)' : '본시즌 (8~11월)';
+
+            if (seasonType === 'spawning') {
+                headerContainer.className = "analysis-modal-header";
+            } else {
+                headerContainer.className = "analysis-modal-header main-season-header";
+            }
+            document.getElementById('modal-main-title').innerText = `📈 [현재 포인트] ${seasonName} 분석 리포트`;
+
+            if (!currentSpotId || !spotsData[currentSpotId]) {
+                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">선택된 포인트가 없습니다. 지도의 포인트를 먼저 선택해주세요.</div>`;
+                modal.classList.add('open');
+                return;
+            }
+
+            const spot = spotsData[currentSpotId];
+            const sRecords = spot.records || [];
+
+            let filteredRecords = sRecords.filter(r => {
+                if (!r.date) return false;
+                let month = new Date(r.date).getMonth() + 1;
+                if (seasonType === 'spawning') {
+                    return month >= 4 && month <= 7;
+                } else {
+                    return month >= 8 && month <= 11;
+                }
+            });
+
+            if (filteredRecords.length === 0) {
+                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">현재 포인트에 등록된 <b>${seasonName}</b> 출조 기록이 없습니다.</div>`;
+                modal.classList.add('open');
+                return;
+            }
+
+            let totalTrips = filteredRecords.length;
+            let totalCatchSum = filteredRecords.reduce((sum, r) => sum + parseInt(r.count || 0), 0);
+            let totalAvg = (totalCatchSum / totalTrips).toFixed(1);
+
+            let tideStats = {};
+            let tempMaxStats = {};
+            let comboStats = {};
+
+            filteredRecords.forEach(r => {
+                let cnt = parseInt(r.count || 0);
+                let tideKey = r.tide ? (r.tide + "물") : null;
+                if (tideKey) {
+                    if (!tideStats[tideKey]) tideStats[tideKey] = { total: 0, count: 0 };
+                    tideStats[tideKey].total += cnt;
+                    tideStats[tideKey].count += 1;
+                }
+
+                let targetTemp = r.waterTempMax || r.waterTempMin;
+                let tempKey = targetTemp ? (Math.round(parseFloat(targetTemp)) + "℃ 대") : null;
+                if (tempKey) {
+                    if (!tempMaxStats[tempKey]) tempMaxStats[tempKey] = { total: 0, count: 0 };
+                    tempMaxStats[tempKey].total += cnt;
+                    tempMaxStats[tempKey].count += 1;
+                }
+
+                if (tideKey && tempKey) {
+                    let comboKey = `${tideKey} ✕ ${tempKey}`;
+                    if (!comboStats[comboKey]) comboStats[comboKey] = { total: 0, count: 0, tide: tideKey, temp: tempKey };
+                    comboStats[comboKey].total += cnt;
+                    comboStats[comboKey].count += 1;
+                }
+            });
+
+            let cardClass = seasonType === 'spawning' ? 'analysis-card' : 'analysis-card main-card';
+            let comboClass = seasonType === 'spawning' ? 'best-combo-box' : 'best-combo-box main-combo';
+
+            let html = `
+                <div class="${cardClass}">
+                    <h4>📊 현재 포인트 ${seasonName} 요약 (${speciesName})</h4>
+                    <div class="analysis-row"><span>시즌 출조 횟수</span><span>${totalTrips}회</span></div>
+                    <div class="analysis-row"><span>시즌 누적 조과</span><span>${totalCatchSum}${unit}</span></div>
+                    <div class="analysis-row"><span>시즌 평균 조과</span><span>${totalAvg}${unit} / 회</span></div>
+                </div>
+            `;
+
+            let comboKeys = Object.keys(comboStats);
+            if (comboKeys.length > 0) {
+                comboKeys.sort((a, b) => (comboStats[b].total / comboStats[b].count) - (comboStats[a].total / comboStats[a].count));
+                let bestCombo = comboStats[comboKeys[0]];
+                let bestComboAvg = (bestCombo.total / bestCombo.count).toFixed(1);
+
+                html += `
+                    <div class="${comboClass}">
+                        <div class="best-combo-title">🌟 이 포인트의 최고 대박 조합</div>
+                        <div><b>${bestCombo.tide}</b> 이면서 <b>${bestCombo.temp}</b>일 때<br>평균 <b>${bestComboAvg}${unit}</b>로 가장 조과가 좋았습니다!</div>
+                    </div>
+                `;
+            }
+
+            html += `<div class="${cardClass}"><h4>🌊 이 포인트 물때별 평균 조과</h4>`;
+            let tideKeys = Object.keys(tideStats);
+            tideKeys.sort((a, b) => (tideStats[b].total / tideStats[b].count) - (tideStats[a].total / tideStats[a].count));
+            tideKeys.forEach(tide => {
+                let avg = (tideStats[tide].total / tideStats[tide].count).toFixed(1);
+                html += `<div class="analysis-row"><span>${tide} (출조 ${tideStats[tide].count}회)</span><span>평균 ${avg}${unit}</span></div>`;
+            });
+            html += `</div>`;
+
+            bodyContent.innerHTML = html;
+            modal.classList.add('open');
+        }
+
+        function closeSpotAnalysisModal() {
+            document.getElementById('spot-analysis-modal').classList.remove('open');
+        }
+    </script>
+</body>
+</html>
