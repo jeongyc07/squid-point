@@ -299,7 +299,7 @@
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
             cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', markers: {} },
-            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', markers: {} }
+            yellowtail: { name: '방어/부시리', dbKey: '방어/부시리', unit: '마리', markers: {} }
         };
 
         let spotsData = {};       
@@ -332,22 +332,33 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    // 지도를 우클릭했을 때 새로운 포인트 생성 및 기록 패널 열기
+                    // [마우스 우클릭 이벤트] 지도 위에 즉시 포인트(마커) 생성 및 패널 오픈
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
                         selectedLng = latLng.getLng();
 
-                        // 새로운 고유 포인트 ID 부여
+                        // 새로운 고유 ID 생성
                         currentSpotId = 'spot_' + Date.now();
                         
-                        // 임시 포인트 데이터 구조 초기화
+                        // 기존에 임시로 떠있던 마커가 있다면 제거
+                        if (window.tempMarker) {
+                            window.tempMarker.setMap(null);
+                        }
+
+                        // 즉시 지도에 임시 마커 표시
+                        window.tempMarker = new kakao.maps.Marker({
+                            position: latLng,
+                            map: map
+                        });
+
+                        // spotsData에 임시 등록
                         spotsData[currentSpotId] = {
                             lat: selectedLat,
                             lng: selectedLng,
                             records: [],
-                            marker: null
+                            marker: window.tempMarker
                         };
 
                         resetFormMode();
@@ -389,6 +400,7 @@
         function switchSpecies(speciesKey, btnElement) {
             closePanel();
             closeSpotAnalysisModal();
+            if (window.tempMarker) { window.tempMarker.setMap(null); window.tempMarker = null; }
 
             currentSpecies = speciesKey;
 
@@ -411,6 +423,10 @@
                         dataObj[id].marker.setMap(null);
                     }
                 }
+            }
+            if (window.tempMarker) {
+                window.tempMarker.setMap(null);
+                window.tempMarker = null;
             }
         }
 
@@ -506,6 +522,10 @@
 
         function closePanel() {
             document.getElementById('record-panel').classList.remove('open');
+            if (window.tempMarker) {
+                window.tempMarker.setMap(null);
+                window.tempMarker = null;
+            }
             resetFormMode();
             setTimeout(() => { if(map) map.relayout(); }, 300);
         }
@@ -519,18 +539,17 @@
             const count = document.getElementById('catch-count').value.trim();
 
             if (!count) {
-                alert("조과(마릿수)를 숫자만 입력해주세요!");
+                alert("조과(마릿수)를 입력해주세요!");
                 document.getElementById('catch-count').focus();
                 return;
             }
 
-            // 우클릭 등으로 생성된 포인트가 spotsData에 확실히 존재하도록 보장
             if (!spotsData[currentSpotId]) {
                 spotsData[currentSpotId] = {
                     lat: selectedLat,
                     lng: selectedLng,
                     records: [],
-                    marker: null
+                    marker: window.tempMarker
                 };
             }
 
@@ -558,12 +577,10 @@
                 };
                 spot.records.push(newRecord);
 
-                // 마커가 아직 지도에 생성되지 않았다면 생성
-                if (!spot.marker) {
-                    spot.marker = new kakao.maps.Marker({
-                        position: new kakao.maps.LatLng(spot.lat, spot.lng),
-                        map: map
-                    });
+                // 정식 등록 완료 시 임시 마커를 일반 관리 마커로 전환
+                if (window.tempMarker) {
+                    spot.marker = window.tempMarker;
+                    window.tempMarker = null;
                     setupMarkerEvents(currentSpotId);
                     allSpeciesData[currentSpecies].markers[currentSpotId] = spot;
                 }
@@ -572,6 +589,7 @@
             saveSpotsToStorage(); 
             resetFormMode();
             renderSpotRecords();
+            alert("조과 기록이 성공적으로 저장되었습니다!");
         }
 
         function setupMarkerEvents(spotId) {
@@ -580,6 +598,7 @@
 
             kakao.maps.event.addListener(spot.marker, 'click', function() {
                 closeSpotAnalysisModal();
+                if (window.tempMarker) { window.tempMarker.setMap(null); window.tempMarker = null; }
                 currentSpotId = spotId;
                 selectedLat = spot.lat;
                 selectedLng = spot.lng;
@@ -597,7 +616,7 @@
             document.getElementById('place-total-count').innerText = spot.records.length;
 
             if (spot.records.length === 0) {
-                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다.</div>`;
+                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 기록을 추가해 보세요!</div>`;
                 return;
             }
 
