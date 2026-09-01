@@ -6,7 +6,7 @@
     <title>🦑 어종별 조과 & 포인트 맵 (실시간 연동)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; }
         
         .main-container { width: 100vw; height: 100vh; position: relative; display: flex; z-index: 1; }
 
@@ -105,14 +105,22 @@
         .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .delete-record-btn:hover { background: #c0392b; }
 
-        /* 우클릭 시 나타나는 커스텀 컨텍스트 메뉴 버튼 스타일 */
+        /* 컨텍스트 메뉴 버튼 스타일 */
         .context-menu-btn {
-            background: #2c3e50; color: white; border: 2px solid #ffffff; padding: 8px 14px; border-radius: 20px;
-            font-size: 13px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-38px); cursor: pointer;
+            background: #2c3e50; color: white; border: 2px solid #ffffff; padding: 10px 16px; border-radius: 25px;
+            font-size: 13px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-42px); cursor: pointer;
             transition: transform 0.1s, background-color 0.1s;
         }
-        .context-menu-btn:hover { background: #34495e; transform: translateY(-40px) scale(1.05); }
+        .context-menu-btn:hover { background: #34495e; transform: translateY(-45px) scale(1.05); }
+
+        /* 안내 가이드 배너 (사파리/크롬 사용자용) */
+        #mobile-guide-banner {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(44, 62, 80, 0.9); color: white; padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; z-index: 150; box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none;
+            text-align: center; white-space: nowrap;
+        }
 
         /* 패턴 분석 모달 스타일 */
         #spot-analysis-modal {
@@ -156,6 +164,7 @@
             .species-btn { width: 30%; height: 48px; flex-direction: row; gap: 6px; font-size: 12px; }
             #map-wrapper { height: calc(100vh - 65px); }
             #record-panel { width: 100%; }
+            #mobile-guide-banner { top: 75px; font-size: 11px; padding: 6px 12px; }
         }
     </style>
 
@@ -165,6 +174,9 @@
 <body>
 
     <div class="main-container">
+        <!-- 상단 가이드 배너 -->
+        <div id="mobile-guide-banner">💡 지도를 1초 동안 꾹 누르면 기록을 추가할 수 있습니다</div>
+
         <!-- 좌측 어종 선택 메뉴바 -->
         <div id="species-sidebar">
             <button class="species-btn active" onclick="switchSpecies('squid', this)">
@@ -250,7 +262,7 @@
             <div class="record-list-section">
                 <h3>📋 이 장소의 출조 내역 (<span id="place-total-count">0</span>회)</h3>
                 <ul id="saved-list">
-                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">지도를 길게 누르거나 터치하여 포인트를 관리해보세요.</div>
+                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">지도를 길게 눌러 포인트를 관리해보세요.</div>
                 </ul>
             </div>
         </div>
@@ -315,6 +327,7 @@
         let editingRecordId = null; 
         let tempMarker = null; 
         let contextOverlay = null; 
+        let touchTimer = null;
 
         window.addEventListener("DOMContentLoaded", function() {
             if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -334,7 +347,7 @@
                     map = new kakao.maps.Map(mapContainer, mapOption);
                     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
 
-                    // 아이폰 사파리 레이아웃 강제 교정
+                    // 아이폰 사파리/크롬 레이아웃 강제 교정
                     setTimeout(function() {
                         map.relayout();
                         map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
@@ -344,9 +357,37 @@
                         loadSpeciesData(currentSpecies);
                     });
 
+                    // PC 및 기본 우클릭 이벤트
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         const latlng = mouseEvent.latLng;
                         showContextMenu(latlng.getLat(), latlng.getLng());
+                    });
+
+                    // 사파리/크롬 모바일 브라우저를 위한 터치 꾹 누르기(Long-press) 감지
+                    let touchStartCoord = null;
+                    kakao.maps.event.addListener(map, 'touchstart', function(mouseEvent) {
+                        touchStartCoord = mouseEvent.latLng;
+                        if (touchTimer) clearTimeout(touchTimer);
+                        
+                        touchTimer = setTimeout(function() {
+                            if (touchStartCoord) {
+                                showContextMenu(touchStartCoord.getLat(), touchStartCoord.getLng());
+                            }
+                        }, 600); // 0.6초 이상 누르고 있으면 작동
+                    });
+
+                    kakao.maps.event.addListener(map, 'touchmove', function() {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
+                    });
+
+                    kakao.maps.event.addListener(map, 'touchend', function() {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
                     });
 
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
@@ -354,6 +395,7 @@
                     });
 
                     kakao.maps.event.addListener(map, 'dragstart', function() {
+                        if (touchTimer) clearTimeout(touchTimer);
                         removeContextMenu();
                     });
 
@@ -776,7 +818,7 @@
             }
 
             const spot = spotsData[currentSpotId];
-            const sRecords = spot.records || [];
+            let sRecords = spot.records || [];
 
             let filteredRecords = sRecords.filter(r => {
                 if (!r.date) return false;
