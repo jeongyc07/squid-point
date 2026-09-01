@@ -318,9 +318,9 @@
         let currentSpecies = 'squid'; 
         let currentSpotId = null; 
         let allSpeciesData = {
-            squid: { name: '무늬오징어', dbKey: 'squid', unit: '마리', markers: {} },
-            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish', unit: '마리', markers: {} },
-            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail', unit: '마리', markers: {} }
+            squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
+            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', markers: {} },
+            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', markers: {} }
         };
 
         let spotsData = {};       
@@ -347,7 +347,6 @@
                     map = new kakao.maps.Map(mapContainer, mapOption);
                     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
 
-                    // 크롬 및 사파리 레이아웃 강제 교정
                     setTimeout(function() {
                         map.relayout();
                         map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
@@ -363,41 +362,18 @@
                         showContextMenu(latlng.getLat(), latlng.getLng());
                     });
 
-                    // 크롬/사파리 모바일 브라우저를 위한 터치 꾹 누르기(Long-press) 완벽 대응
-                    let touchStartCoord = null;
-                    
+                    // 모바일 꾹 누르기(Long-press) 이벤트
                     kakao.maps.event.addListener(map, 'touchstart', function(mouseEvent) {
-                        touchStartCoord = mouseEvent.latLng;
+                        const latlng = mouseEvent.latLng;
                         if (touchTimer) clearTimeout(touchTimer);
                         
                         touchTimer = setTimeout(function() {
-                            if (touchStartCoord) {
-                                showContextMenu(touchStartCoord.getLat(), touchStartCoord.getLng());
-                            }
-                        }, 700); // 0.7초 동안 꾹 누르면 작동
+                            showContextMenu(latlng.getLat(), latlng.getLng());
+                        }, 700); 
                     });
 
-                    // 크롬 브라우저 전용 DOM 레벨 터치 방어 (컨텍스트 메뉴 침범 차단)
-                    const mapEl = document.getElementById('map');
-                    mapEl.addEventListener('touchstart', function(e) {
-                        // 멀티터치나 스크롤 동작이 아닐 때 타이머 작동 보조
-                    }, { passive: true });
-
-                    mapEl.addEventListener('touchmove', function() {
-                        if (touchTimer) {
-                            clearTimeout(touchTimer);
-                            touchTimer = null;
-                        }
-                    }, { passive: true });
-
-                    mapEl.addEventListener('touchend', function() {
-                        if (touchTimer) {
-                            clearTimeout(touchTimer);
-                            touchTimer = null;
-                        }
-                    }, { passive: true });
-
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+                        if (touchTimer) clearTimeout(touchTimer);
                         closeSpotAnalysisModal();
                     });
 
@@ -467,7 +443,7 @@
             if (!window.db) return;
 
             const speciesInfo = allSpeciesData[speciesKey];
-            const dbRef = window.ref(window.db, 'fishing_spots/' + speciesInfo.dbKey);
+            const dbRef = window.ref(window.db, speciesInfo.dbKey);
 
             window.onValue(dbRef, (snapshot) => {
                 clearAllMarkersFromMap();
@@ -516,7 +492,7 @@
                 };
             }
             const speciesInfo = allSpeciesData[currentSpecies];
-            const dbRef = window.ref(window.db, 'fishing_spots/' + speciesInfo.dbKey);
+            const dbRef = window.ref(window.db, speciesInfo.dbKey);
             
             window.set(dbRef, storageData).catch((error) => {
                 console.error("Firebase 저장 실패:", error);
