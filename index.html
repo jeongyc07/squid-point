@@ -332,15 +332,17 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    /* 지도를 우클릭했을 때 새로운 포인트 생성 및 기록 패널 열기 */
+                    // 지도를 우클릭했을 때 새로운 포인트 생성 및 기록 패널 열기
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
                         selectedLng = latLng.getLng();
 
+                        // 새로운 고유 포인트 ID 부여
                         currentSpotId = 'spot_' + Date.now();
                         
+                        // 임시 포인트 데이터 구조 초기화
                         spotsData[currentSpotId] = {
                             lat: selectedLat,
                             lng: selectedLng,
@@ -522,6 +524,16 @@
                 return;
             }
 
+            // 우클릭 등으로 생성된 포인트가 spotsData에 확실히 존재하도록 보장
+            if (!spotsData[currentSpotId]) {
+                spotsData[currentSpotId] = {
+                    lat: selectedLat,
+                    lng: selectedLng,
+                    records: [],
+                    marker: null
+                };
+            }
+
             const spot = spotsData[currentSpotId];
 
             if (editingRecordId) {
@@ -546,6 +558,7 @@
                 };
                 spot.records.push(newRecord);
 
+                // 마커가 아직 지도에 생성되지 않았다면 생성
                 if (!spot.marker) {
                     spot.marker = new kakao.maps.Marker({
                         position: new kakao.maps.LatLng(spot.lat, spot.lng),
@@ -568,6 +581,8 @@
             kakao.maps.event.addListener(spot.marker, 'click', function() {
                 closeSpotAnalysisModal();
                 currentSpotId = spotId;
+                selectedLat = spot.lat;
+                selectedLng = spot.lng;
                 document.getElementById('form-section-container').style.display = "flex";
                 renderSpotRecords();
                 openPanel();
