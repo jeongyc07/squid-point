@@ -362,7 +362,7 @@
                         showContextMenu(latlng.getLat(), latlng.getLng());
                     });
 
-                    // 모바일 꾹 누르기(Long-press) 이벤트
+                    // 모바일 꾹 누르기(Long-press) 이벤트 (네이버 앱 호환)
                     kakao.maps.event.addListener(map, 'touchstart', function(mouseEvent) {
                         const latlng = mouseEvent.latLng;
                         if (touchTimer) clearTimeout(touchTimer);
