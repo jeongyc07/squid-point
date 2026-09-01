@@ -332,17 +332,15 @@
                         loadSpeciesData(currentSpecies);
                     });
 
-                    // 마우스 우클릭 시 새로운 포인트를 생성하고 기록 패널을 여는 기능 복구
+                    /* 지도를 우클릭했을 때 새로운 포인트 생성 및 기록 패널 열기 */
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
                         selectedLng = latLng.getLng();
 
-                        // 임시 신규 포인트 ID 생성
                         currentSpotId = 'spot_' + Date.now();
                         
-                        // 새 포인트 객체 준비 (아직 DB에 저장되지는 않음, 기록을 추가할 때 저장됨)
                         spotsData[currentSpotId] = {
                             lat: selectedLat,
                             lng: selectedLng,
@@ -460,7 +458,6 @@
 
             let storageData = {};
             for (let id in spotsData) {
-                // 아직 기록이 없는 임시 포인트는 저장하지 않음
                 if (spotsData[id].records && spotsData[id].records.length > 0) {
                     storageData[id] = {
                         lat: spotsData[id].lat,
@@ -549,7 +546,6 @@
                 };
                 spot.records.push(newRecord);
 
-                // 신규 포인트인 경우 마커 생성
                 if (!spot.marker) {
                     spot.marker = new kakao.maps.Marker({
                         position: new kakao.maps.LatLng(spot.lat, spot.lng),
