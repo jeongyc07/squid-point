@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🦑 어종별 조과 & 포인트 맵 (실시간 연동)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -10,11 +10,12 @@
         
         .main-container { width: 100vw; height: 100vh; position: relative; display: flex; }
 
-        /* 좌측 어종 선택 메뉴바 */
+        /* 좌측 어종 선택 메뉴바 (모바일 대응 수정) */
         #species-sidebar {
             width: 80px; background: #2c3e50; height: 100%; z-index: 20;
             display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 15px;
             box-shadow: 4px 0 10px rgba(0,0,0,0.15);
+            flex-shrink: 0;
         }
         .species-btn {
             width: 60px; height: 60px; background: #34495e; border: none; border-radius: 12px;
@@ -28,18 +29,18 @@
         #map-wrapper { flex-grow: 1; height: 100%; position: relative; }
         #map { width: 100%; height: 100%; background-color: #eee; }
 
-        /* 우측 조과 기록 패널 */
+        /* 우측 조과 기록 패널 (모바일 대응 수정) */
         #record-panel {
-            position: absolute; right: 0; top: 0; width: 380px; height: 100%;
+            position: absolute; right: 0; top: 0; width: 380px; max-width: 100%; height: 100%;
             background: #ffffff; border-left: 1px solid #ddd; box-shadow: -4px 0 15px rgba(0,0,0,0.15);
-            z-index: 10; padding: 25px; display: flex; flex-direction: column; gap: 15px;
+            z-index: 30; padding: 20px; display: flex; flex-direction: column; gap: 12px;
             transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto;
         }
         #record-panel.open { transform: translateX(0); }
 
         .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .panel-header h2 { font-size: 18px; color: #2c3e50; }
-        .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; }
+        .panel-header h2 { font-size: 17px; color: #2c3e50; }
+        .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 5px; }
         .close-btn:hover { color: #333; }
 
         /* 우측 패널 분석 버튼 그룹 */
@@ -58,13 +59,13 @@
         }
         .main-analysis-btn:hover { background: #ba4a00; }
 
-        .form-section { background: #fdfefe; border: 1px solid #ebedef; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        .form-section { background: #fdfefe; border: 1px solid #ebedef; padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
         .form-section h3 { font-size: 13px; color: #2980b9; margin-bottom: 2px; }
 
         .form-group { margin-bottom: 2px; }
         .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; }
         .form-group input { 
-            width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; 
+            width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; 
         }
 
         #lunar-display {
@@ -90,18 +91,18 @@
         }
         .cancel-edit-btn:hover { background: #7f8c8d; }
 
-        .record-list-section { margin-top: 5px; border-top: 1px solid #eee; padding-top: 12px; flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+        .record-list-section { margin-top: 5px; border-top: 1px solid #eee; padding-top: 10px; flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
         .record-list-section h3 { font-size: 13px; color: #333; }
-        #saved-list { list-style: none; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        #saved-list { list-style: none; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .saved-item { 
             background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px; border-radius: 6px; font-size: 12px; 
             display: flex; justify-content: space-between; align-items: center; 
         }
         .saved-item-info { line-height: 1.5; color: #444; }
         .item-btn-group { display: flex; gap: 4px; }
-        .edit-record-btn { background: #f39c12; color: white; border: none; padding: 5px 7px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .edit-record-btn { background: #f39c12; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .edit-record-btn:hover { background: #d68910; }
-        .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 5px 7px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .delete-record-btn:hover { background: #c0392b; }
 
         /* 우클릭 시 나타나는 커스텀 컨텍스트 메뉴 버튼 스타일 */
@@ -148,20 +149,23 @@
         .modal-close-btn { background: #95a5a6; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; }
         .modal-close-btn:hover { background: #7f8c8d; }
 
+        /* 스마트폰 화면 최적화 (하단 메뉴바 배치) */
         @media (max-width: 768px) {
             .main-container { flex-direction: column-reverse; }
-            #species-sidebar { width: 100%; height: 70px; flex-direction: row; justify-content: center; padding: 0; gap: 10px; }
-            .species-btn { width: 30%; height: 50px; flex-direction: row; gap: 6px; font-size: 12px; }
-            #map-wrapper { height: calc(100vh - 70px); }
+            #species-sidebar { width: 100%; height: 65px; flex-direction: row; justify-content: center; padding: 0; gap: 10px; }
+            .species-btn { width: 30%; height: 48px; flex-direction: row; gap: 6px; font-size: 12px; }
+            #map-wrapper { height: calc(100vh - 65px); }
             #record-panel { width: 100%; }
         }
     </style>
 
+    <!-- 카카오 지도 SDK -->
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=9f9339f1c455ac084a23d987ceb30e56&autoload=false"></script>
 </head>
 <body>
 
     <div class="main-container">
+        <!-- 좌측 어종 선택 메뉴바 -->
         <div id="species-sidebar">
             <button class="species-btn active" onclick="switchSpecies('squid', this)">
                 <span>🦑</span>무늬
@@ -184,6 +188,7 @@
                 <button class="close-btn" onclick="closePanel()">✕</button>
             </div>
             
+            <!-- 우측 패널 분석 버튼 그룹 -->
             <div class="analysis-btn-group">
                 <button class="spawn-analysis-btn" onclick="openSeasonAnalysisModal('spawning')">
                     🌸 산란시즌 분석
@@ -193,6 +198,7 @@
                 </button>
             </div>
 
+            <!-- 입력/수정 폼 섹션 -->
             <div class="form-section" id="form-section-container" style="display: none;">
                 <h3 id="form-mode-title">📌 새로운 출조 기록 추가</h3>
                 <div class="form-group">
@@ -209,6 +215,7 @@
                     </div>
                 </div>
 
+                <!-- 수온 입력 (최저/최고 분리) -->
                 <div class="temp-row">
                     <div class="form-group">
                         <label>최저수온</label>
@@ -243,12 +250,13 @@
             <div class="record-list-section">
                 <h3>📋 이 장소의 출조 내역 (<span id="place-total-count">0</span>회)</h3>
                 <ul id="saved-list">
-                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">지도를 우클릭하여 새로운 포인트를 생성해보세요.</div>
+                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">지도를 길게 누르거나 터치하여 포인트를 관리해보세요.</div>
                 </ul>
             </div>
         </div>
     </div>
 
+    <!-- 시즌 분석 모달 -->
     <div id="spot-analysis-modal">
         <div class="analysis-modal-content">
             <div class="analysis-modal-header" id="modal-header-container">
@@ -256,18 +264,19 @@
                 <button class="close-btn" style="color:white;" onclick="closeSpotAnalysisModal()">✕</button>
             </div>
             <div class="analysis-modal-body" id="spot-analysis-body-content">
-                </div>
+                <!-- 분석 내용 동적 생성 -->
+            </div>
             <div class="analysis-modal-footer">
                 <button class="modal-close-btn" onclick="closeSpotAnalysisModal()">닫기</button>
             </div>
         </div>
     </div>
 
+    <!-- Firebase SDK (Modular CDN 버전) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // 사용자 제공 파이어베이스 설정
         const firebaseConfig = {
             apiKey: "AIzaSyAfco08ZKb0Z8JWZOag5f5JIEpGDIJ2L0o",
             authDomain: "squid-point.firebaseapp.com",
@@ -279,18 +288,15 @@
             databaseURL: "https://squid-point-default-rtdb.firebaseio.com/"
         };
 
-        // Firebase 초기화
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 전역 변수 노출 (다른 일반 스크립트 함수들이 접근할 수 있도록 window에 등록)
         window.db = db;
         window.ref = ref;
         window.set = set;
         window.onValue = onValue;
         window.remove = remove;
 
-        // 파이어베이스 연동 완료 후 지도 및 데이터 로드 시작 신호 발송
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
@@ -309,7 +315,6 @@
         let editingRecordId = null; 
         let tempMarker = null; 
         let contextOverlay = null; 
-        let currentDbListener = null; // 실시간 리스너 해제용
 
         window.addEventListener("DOMContentLoaded", function() {
             if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -333,22 +338,26 @@
                         map.relayout();
                     }, 500);
 
-                    // 파이어베이스 모듈 로드가 완료되면 데이터 실시간 구독 시작
                     window.addEventListener('firebase-ready', function() {
                         loadSpeciesData(currentSpecies);
                     });
 
+                    // PC 우클릭 및 모바일 터치 대응
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         const latlng = mouseEvent.latLng;
                         showContextMenu(latlng.getLat(), latlng.getLng());
                     });
 
-                    kakao.maps.event.addListener(map, 'dragstart', function() {
-                        removeContextMenu();
+                    // 스마트폰 화면에서 꾹 누르기(longtap) 또는 일반 클릭 시 편의성 보완
+                    kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+                        closeSpotAnalysisModal();
+                        // 스마트폰에서 터치로 간편하게 새 포인트 추가를 원할 수 있으므로 일반 클릭 시 컨텍스트 메뉴가 뜨게 하려면 아래 주석을 해제하세요.
+                        // const latlng = mouseEvent.latLng;
+                        // showContextMenu(latlng.getLat(), latlng.getLng());
                     });
 
-                    kakao.maps.event.addListener(map, 'click', function() {
-                        closeSpotAnalysisModal();
+                    kakao.maps.event.addListener(map, 'dragstart', function() {
+                        removeContextMenu();
                     });
 
                     document.addEventListener('keydown', function(event) {
@@ -408,20 +417,13 @@
             }
         }
 
-        // --- 파이어베이스 실시간 데이터 로드 (실시간 동기화) ---
         function loadSpeciesData(speciesKey) {
             if (!window.db) return;
 
             const speciesInfo = allSpeciesData[speciesKey];
             const dbRef = window.ref(window.db, 'fishing_spots/' + speciesInfo.dbKey);
 
-            // 이전 리스너가 있다면 중복 방지를 위해 해제
-            if (currentDbListener) {
-                // Firebase modular SDK는 onValue 해제를 위해 off 처럼 동작하는 함수를 사용하거나 새로 등록 관리 가능
-            }
-
             window.onValue(dbRef, (snapshot) => {
-                // 기존 마커 지도에서 제거
                 clearAllMarkersFromMap();
 
                 spotsData = {};
@@ -448,7 +450,6 @@
                     setupMarkerEvents(id);
                 }
 
-                // 만약 현재 우측 패널이 열려있고 특정 포인트를 보고 있다면 리스트 실시간 갱신
                 if (currentSpotId && spotsData[currentSpotId]) {
                     renderSpotRecords();
                 } else if (currentSpotId && !spotsData[currentSpotId]) {
@@ -457,7 +458,6 @@
             });
         }
 
-        // --- 파이어베이스에 데이터 저장 ---
         function saveSpotsToStorage() {
             if (!window.db) return;
 
@@ -585,6 +585,7 @@
 
         function openPanel() {
             document.getElementById('record-panel').classList.add('open');
+            setTimeout(() => { if(map) map.relayout(); }, 300);
         }
 
         function closePanel() {
@@ -597,6 +598,7 @@
             }
             document.getElementById('record-panel').classList.remove('open');
             resetFormMode();
+            setTimeout(() => { if(map) map.relayout(); }, 300);
         }
 
         function saveRecord() {
@@ -668,7 +670,7 @@
             document.getElementById('place-total-count').innerText = spot.records.length;
 
             if (spot.records.length === 0) {
-                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 우클릭하여 기록을 추가해보세요!</div>`;
+                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다.</div>`;
                 return;
             }
 
