@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (사진 EXIF 자동입력 추가)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (PC 우클릭 + 모바일 사진EXIF 통합)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -58,7 +58,7 @@
         }
         .main-analysis-btn:hover { background: #ba4a00; }
 
-        /* 사진 자동입력 버튼 스타일 */
+        /* 사진 자동입력 버튼 스타일 (모바일 추천) */
         .photo-upload-section {
             background: #e8f4f8; border: 2px dashed #3498db; padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: background 0.2s;
         }
@@ -193,16 +193,16 @@
                 </button>
             </div>
 
-            <!-- 사진으로 자동 입력 섹션 -->
+            <!-- 사진으로 자동 입력 섹션 (모바일용 추천) -->
             <div class="photo-upload-section" onclick="document.getElementById('photo-file-input').click()">
                 <div class="photo-upload-label">
-                    📷 사진으로 날짜·위치 자동 입력하기
+                    📷 사진으로 날짜·위치 자동 입력하기 (모바일 추천)
                 </div>
                 <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
             </div>
 
             <div class="form-section" id="form-section-container">
-                <h3 id="form-mode-title">📌 새로운 출조 기록 추가</h3>
+                <h3 id="form-mode-title">📌 새로운 출조 기록 추가 (PC: 우클릭)</h3>
                 <div class="form-group">
                     <label>양력 날짜 선택</label>
                     <input type="date" id="record-date" onchange="onDateChange()">
@@ -251,7 +251,7 @@
             <div class="record-list-section">
                 <h3>📋 이 장소의 출조 내역 (<span id="place-total-count">0</span>회)</h3>
                 <ul id="saved-list">
-                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">등록된 포인트가 없습니다.</div>
+                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">등록된 포인트가 없습니다. PC에서는 지도를 우클릭하거나, 폰에서는 사진을 올려보세요!</div>
                 </ul>
             </div>
         </div>
@@ -354,6 +354,7 @@
                         }
                     });
 
+                    // PC용: 지도 우클릭 시 수동 포인트 생성
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
 
@@ -414,7 +415,7 @@
             });
         });
 
-        // 사진 업로드 및 EXIF(날짜, GPS) 추출 함수
+        // 모바일/PC 겸용: 사진 업로드 및 EXIF(날짜, GPS) 자동 추출 함수
         function handlePhotoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -422,10 +423,9 @@
             EXIF.getData(file, function() {
                 const exifData = EXIF.getAllTags(this);
                 
-                // 1. 날짜 추출 시도
+                // 1. 날짜 추출
                 let dateTimeOriginal = exifData.DateTimeOriginal || exifData.DateTime;
                 if (dateTimeOriginal) {
-                    // "YYYY:MM:DD HH:MM:SS" 형식을 "YYYY-MM-DD"로 변환
                     let parts = dateTimeOriginal.split(" ");
                     let datePart = parts[0].replace(/:/g, "-");
                     document.getElementById('record-date').value = datePart;
@@ -434,7 +434,7 @@
                     alert("사진에서 촬영 날짜 정보를 찾지 못했습니다. 날짜는 직접 선택해주세요.");
                 }
 
-                // 2. GPS 위치 추출 시도
+                // 2. GPS 위치 추출
                 let latRef = exifData.GPSLatitudeRef;
                 let latArray = exifData.GPSLatitude;
                 let lonRef = exifData.GPSLongitudeRef;
@@ -450,7 +450,7 @@
 
                     const newLatLng = new kakao.maps.LatLng(selectedLat, selectedLng);
                     map.setCenter(newLatLng);
-                    map.setLevel(4); // 포인트 주변으로 확대
+                    map.setLevel(4);
 
                     if (window.tempMarker) {
                         window.tempMarker.setMap(null);
@@ -469,17 +469,16 @@
                     };
 
                     renderSpotRecords();
+                    openPanel();
                     alert("📸 사진의 촬영 날짜와 GPS 위치가 성공적으로 반영되었습니다!");
                 } else {
-                    alert("사진에 위치(GPS) 정보가 없습니다. 지도를 우클릭하여 포인트를 지정하거나 기존 포인트를 선택해주세요.");
+                    alert("사진에 위치(GPS) 정보가 없습니다. PC인 경우 지도를 우클릭하여 포인트를 지정해주세요.");
                 }
             });
 
-            // 파일 입력 초기화 (같은 사진 다시 올릴 때 반응하도록)
             event.target.value = "";
         }
 
-        // GPS 도/분/초 단위를 십진수(DD)로 변환하는 헬퍼 함수
         function convertDMSToDD(dmsArray, ref) {
             let d = dmsArray[0];
             let m = dmsArray[1];
@@ -708,7 +707,7 @@
             document.getElementById('place-total-count').innerText = spot.records.length;
 
             if (spot.records.length === 0) {
-                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 사진을 올리거나 아래 양식에서 기록을 추가해 보세요!</div>`;
+                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다.</div>`;
                 return;
             }
 
@@ -769,7 +768,7 @@
             document.getElementById('catch-count').value = '';
             onDateChange();
 
-            document.getElementById('form-mode-title').innerText = "📌 새로운 출조 기록 추가";
+            document.getElementById('form-mode-title').innerText = "📌 새로운 출조 기록 추가 (PC: 우클릭)";
             document.getElementById('save-action-btn').innerText = "기록 추가하기";
             document.getElementById('cancel-edit-btn').style.display = "none";
         }
