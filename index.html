@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (임시 마크 제어 추가)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (이미지 자동 압축 추가)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -208,7 +208,7 @@
             <!-- 사진으로 자동 입력 섹션 -->
             <div class="photo-upload-section" onclick="document.getElementById('photo-file-input').click()">
                 <div class="photo-upload-label">
-                    📷 사진으로 날짜·위치 자동 입력하기
+                    📷 사진으로 날짜·위치 자동 입력하기 (자동 압축)
                 </div>
                 <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
             </div>
@@ -325,7 +325,7 @@
         let currentSpecies = 'squid'; 
         let currentSpotId = null; 
         let uploadedPhotoBase64 = null; 
-        let isTempSpot = false; // 새로 우클릭/사진으로 만든 임시 포인트인지 여부
+        let isTempSpot = false; 
 
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
@@ -380,7 +380,6 @@
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
 
-                        // 만약 기존에 저장되지 않은 임시 마크가 있었다면 먼저 제거
                         if (isTempSpot) {
                             clearTempMarker();
                         }
@@ -410,11 +409,10 @@
                         openPanel();
                     });
 
-                    // 지도 일반 클릭 시 (기존 저장된 마커가 아닌 빈 지도 클릭 시)
+                    // 지도 일반 클릭 시
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
                         closeSpotAnalysisModal();
                         
-                        // 임시로 만든 마크가 열려있는 상태에서 다른 빈 지도를 누르면 취소 및 마크 삭제
                         if (isTempSpot) {
                             cancelTempMarkAndClose();
                         } else {
@@ -441,7 +439,48 @@
             });
         });
 
-        // 사진 업로드 및 EXIF(날짜, GPS) 추출
+        // 📷 이미지를 업로드할 때 자동으로 크기 및 용량을 압축하는 함수 (캔버스 활용)
+        function compressAndResizeImage(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // 최대 가로/세로 길이를 1200픽셀로 제한하여 용량을 대폭 줄임 (스마트폰 원본 고해상도 방지)
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height = Math.round((height * MAX_WIDTH) / width);
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width = Math.round((width * MAX_HEIGHT) / height);
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // JPEG 포맷으로 압축 품질을 0.7(70%)로 설정하여 대략 200~400KB 수준으로 최적화
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    callback(compressedDataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 사진 업로드 및 EXIF(날짜, GPS) 추출 + 자동 압축 적용
         function handlePhotoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -450,11 +489,10 @@
                 clearTempMarker();
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                uploadedPhotoBase64 = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            // 업로드한 사진을 자동으로 압축하여 Base64 변환
+            compressAndResizeImage(file, function(compressedBase64) {
+                uploadedPhotoBase64 = compressedBase64;
+            });
 
             EXIF.getData(file, function() {
                 const exifData = EXIF.getAllTags(this);
@@ -501,7 +539,7 @@
 
                     renderSpotRecords();
                     openPanel();
-                    alert("📸 사진의 촬영 날짜와 GPS 위치가 성공적으로 반영되었습니다!");
+                    alert("📸 사진이 자동으로 압축되었으며, 촬영 날짜와 GPS 위치가 반영되었습니다!");
                 } else {
                     alert("사진에 위치(GPS) 정보가 없습니다. PC인 경우 지도를 우클릭하여 포인트를 지정해주세요.");
                 }
@@ -532,7 +570,6 @@
             isTempSpot = false;
         }
 
-        // 임시 마크 생성 상태에서 취소하거나 다른 곳을 눌렀을 때 실행되는 함수
         function cancelTempMarkAndClose() {
             if (isTempSpot) {
                 clearTempMarker();
@@ -728,7 +765,7 @@
                 }
             }
 
-            isTempSpot = false; // 정식 저장되었으므로 더이상 임시 포인트가 아님
+            isTempSpot = false; 
             saveSpotsToStorage(); 
             resetFormMode();
             renderSpotRecords();
