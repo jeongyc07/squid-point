@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (우클릭 패널 직행)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (초기 로딩 수정완료)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -279,6 +279,7 @@
         window.onValue = onValue;
         window.remove = remove;
 
+        window.isFirebaseReady = true;
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
@@ -290,11 +291,12 @@
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
             cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', markers: {} },
-            yellowtail: { name: '방어/부시리', dbKey: '마리', dbKey: 'yellowtail_spots', unit: '마리', markers: {} }
+            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', markers: {} }
         };
 
         let spotsData = {};       
         let editingRecordId = null; 
+        let isMapInitialized = false;
 
         window.addEventListener("DOMContentLoaded", function() {
             if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -323,8 +325,17 @@
                         map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
                     }, 300);
 
-                    window.addEventListener('firebase-ready', function() {
+                    isMapInitialized = true;
+                    
+                    // 지도가 로드된 시점에 이미 파이어베이스가 준비되어 있다면 곧바로 데이터 로드
+                    if (window.isFirebaseReady) {
                         loadSpeciesData(currentSpecies);
+                    }
+
+                    window.addEventListener('firebase-ready', function() {
+                        if (isMapInitialized) {
+                            loadSpeciesData(currentSpecies);
+                        }
                     });
 
                     // [마우스 우클릭] 마커 생성 및 우측 패널 바로 열기
@@ -426,7 +437,7 @@
         }
 
         function loadSpeciesData(speciesKey) {
-            if (!window.db) return;
+            if (!window.db || !map) return;
 
             const speciesInfo = allSpeciesData[speciesKey];
             const dbRef = window.ref(window.db, speciesInfo.dbKey);
