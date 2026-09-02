@@ -205,10 +205,10 @@
                 </button>
             </div>
 
-            <!-- 사진으로 자동 입력 섹션 -->
+            <!-- 사진 등록 섹션 -->
             <div class="photo-upload-section" onclick="document.getElementById('photo-file-input').click()">
                 <div class="photo-upload-label">
-                    📷 사진으로 날짜·위치 자동 입력하기 (자동 압축)
+                    📷 사진 등록
                 </div>
                 <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
             </div>
@@ -420,7 +420,7 @@
                         }
                     });
 
-                    // ESC 키 누를 때 처리
+                    // ESC 키 누할 때 처리
                     document.addEventListener('keydown', function(event) {
                         if (event.key === 'Escape') {
                             closePhotoModal();
