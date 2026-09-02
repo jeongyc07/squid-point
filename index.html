@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (사진 보기 기능 추가)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (임시 마크 제어 추가)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -105,7 +105,6 @@
         .saved-item-info { line-height: 1.5; color: #444; flex-grow: 1; }
         .item-btn-group { display: flex; gap: 3px; flex-shrink: 0; }
         
-        /* [사진] [수정] [삭제] 버튼 스타일 */
         .view-photo-btn { background: #2980b9; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .view-photo-btn:hover { background: #1f618d; }
         .edit-record-btn { background: #f39c12; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
@@ -257,7 +256,7 @@
 
                 <div class="action-btn-group">
                     <button class="save-btn" id="save-action-btn" onclick="saveRecord()">기록 추가하기</button>
-                    <button class="cancel-edit-btn" id="cancel-edit-btn" onclick="resetFormMode()">취소</button>
+                    <button class="cancel-edit-btn" id="cancel-edit-btn" onclick="cancelTempMarkAndClose()">취소</button>
                 </div>
             </div>
 
@@ -325,7 +324,8 @@
         let selectedLat = 34.31, selectedLng = 126.75; 
         let currentSpecies = 'squid'; 
         let currentSpotId = null; 
-        let uploadedPhotoBase64 = null; // 업로드된 사진 임시 저장 변수
+        let uploadedPhotoBase64 = null; 
+        let isTempSpot = false; // 새로 우클릭/사진으로 만든 임시 포인트인지 여부
 
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', markers: {} },
@@ -380,16 +380,18 @@
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
 
+                        // 만약 기존에 저장되지 않은 임시 마크가 있었다면 먼저 제거
+                        if (isTempSpot) {
+                            clearTempMarker();
+                        }
+
                         const latLng = mouseEvent.latLng;
                         selectedLat = latLng.getLat();
                         selectedLng = latLng.getLng();
 
                         currentSpotId = 'spot_' + Date.now();
+                        isTempSpot = true;
                         
-                        if (window.tempMarker) {
-                            window.tempMarker.setMap(null);
-                        }
-
                         window.tempMarker = new kakao.maps.Marker({
                             position: latLng,
                             map: map
@@ -402,21 +404,34 @@
                             marker: window.tempMarker
                         };
 
-                        uploadedPhotoBase64 = null; // 수동 입력이므로 사진 초기화
+                        uploadedPhotoBase64 = null; 
                         resetFormMode();
                         renderSpotRecords();
                         openPanel();
                     });
 
+                    // 지도 일반 클릭 시 (기존 저장된 마커가 아닌 빈 지도 클릭 시)
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
                         closeSpotAnalysisModal();
+                        
+                        // 임시로 만든 마크가 열려있는 상태에서 다른 빈 지도를 누르면 취소 및 마크 삭제
+                        if (isTempSpot) {
+                            cancelTempMarkAndClose();
+                        } else {
+                            closePanel();
+                        }
                     });
 
+                    // ESC 키 누를 때 처리
                     document.addEventListener('keydown', function(event) {
                         if (event.key === 'Escape') {
                             closePhotoModal();
                             closeSpotAnalysisModal();
-                            closePanel();
+                            if (isTempSpot) {
+                                cancelTempMarkAndClose();
+                            } else {
+                                closePanel();
+                            }
                         }
                     });
 
@@ -426,12 +441,15 @@
             });
         });
 
-        // 사진 업로드 및 EXIF(날짜, GPS) 추출 + Base64 변환 함수
+        // 사진 업로드 및 EXIF(날짜, GPS) 추출
         function handlePhotoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            // 이미지를 압축/변환하여 Base64 문자열로 저장
+            if (isTempSpot) {
+                clearTempMarker();
+            }
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 uploadedPhotoBase64 = e.target.result;
@@ -441,7 +459,6 @@
             EXIF.getData(file, function() {
                 const exifData = EXIF.getAllTags(this);
                 
-                // 1. 날짜 추출
                 let dateTimeOriginal = exifData.DateTimeOriginal || exifData.DateTime;
                 if (dateTimeOriginal) {
                     let parts = dateTimeOriginal.split(" ");
@@ -452,7 +469,6 @@
                     alert("사진에서 촬영 날짜 정보를 찾지 못했습니다. 날짜는 직접 선택해주세요.");
                 }
 
-                // 2. GPS 위치 추출
                 let latRef = exifData.GPSLatitudeRef;
                 let latArray = exifData.GPSLatitude;
                 let lonRef = exifData.GPSLongitudeRef;
@@ -465,14 +481,11 @@
                     selectedLat = lat;
                     selectedLng = lng;
                     currentSpotId = 'spot_' + Date.now();
+                    isTempSpot = true;
 
                     const newLatLng = new kakao.maps.LatLng(selectedLat, selectedLng);
                     map.setCenter(newLatLng);
                     map.setLevel(4);
-
-                    if (window.tempMarker) {
-                        window.tempMarker.setMap(null);
-                    }
 
                     window.tempMarker = new kakao.maps.Marker({
                         position: newLatLng,
@@ -513,13 +526,24 @@
                 window.tempMarker.setMap(null);
                 window.tempMarker = null;
             }
+            if (isTempSpot && currentSpotId && spotsData[currentSpotId] && spotsData[currentSpotId].records.length === 0) {
+                delete spotsData[currentSpotId];
+            }
+            isTempSpot = false;
+        }
+
+        // 임시 마크 생성 상태에서 취소하거나 다른 곳을 눌렀을 때 실행되는 함수
+        function cancelTempMarkAndClose() {
+            if (isTempSpot) {
+                clearTempMarker();
+            }
+            closePanel();
         }
 
         function switchSpecies(speciesKey, btnElement) {
-            closePanel();
+            cancelTempMarkAndClose();
             closeSpotAnalysisModal();
             closePhotoModal();
-            clearTempMarker();
 
             currentSpecies = speciesKey;
 
@@ -543,7 +567,10 @@
                     }
                 }
             }
-            clearTempMarker();
+            if (window.tempMarker) {
+                window.tempMarker.setMap(null);
+                window.tempMarker = null;
+            }
         }
 
         function loadSpeciesData(speciesKey) {
@@ -677,7 +704,7 @@
                     record.waterTempMax = waterTempMax;
                     record.count = count;
                     if (uploadedPhotoBase64) {
-                        record.photo = uploadedPhotoBase64; // 새 사진으로 교체
+                        record.photo = uploadedPhotoBase64;
                     }
                 }
             } else {
@@ -701,6 +728,7 @@
                 }
             }
 
+            isTempSpot = false; // 정식 저장되었으므로 더이상 임시 포인트가 아님
             saveSpotsToStorage(); 
             resetFormMode();
             renderSpotRecords();
@@ -714,10 +742,13 @@
             kakao.maps.event.addListener(spot.marker, 'click', function() {
                 closeSpotAnalysisModal();
                 closePhotoModal();
-                clearTempMarker();
+                if (isTempSpot) {
+                    clearTempMarker();
+                }
                 currentSpotId = spotId;
                 selectedLat = spot.lat;
                 selectedLng = spot.lng;
+                isTempSpot = false;
                 renderSpotRecords();
                 openPanel();
             });
@@ -731,7 +762,7 @@
             document.getElementById('place-total-count').innerText = spot.records.length;
 
             if (spot.records.length === 0) {
-                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다.</div>`;
+                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 기록을 추가하면 포인트가 유지됩니다!</div>`;
                 return;
             }
 
@@ -748,7 +779,6 @@
                     tempStr = `수온: ${minVal} ~ ${maxVal}`;
                 }
 
-                // 사진이 있는 경우에만 [사진] 버튼 노출
                 let photoBtnHtml = item.photo ? `<button class="view-photo-btn" onclick="openPhotoModal('${item.id}')">사진</button>` : '';
 
                 html += `
@@ -790,7 +820,7 @@
             if (!record) return;
 
             editingRecordId = recordId;
-            uploadedPhotoBase64 = record.photo || null; // 기존 사진 유지
+            uploadedPhotoBase64 = record.photo || null; 
 
             document.getElementById('record-date').value = record.date;
             document.getElementById('tide-input').value = record.tide || '';
@@ -853,8 +883,8 @@
             }
             document.getElementById('modal-main-title').innerText = `📈 [현재 포인트] ${seasonName} 분석 리포트`;
 
-            if (!currentSpotId || !spotsData[currentSpotId]) {
-                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">선택된 포인트가 없습니다. 지도의 포인트를 먼저 선택해주세요.</div>`;
+            if (!currentSpotId || !spotsData[currentSpotId] || isTempSpot) {
+                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">저장된 포인트가 아니거나 선택된 포인트가 없습니다.</div>`;
                 modal.classList.add('open');
                 return;
             }
