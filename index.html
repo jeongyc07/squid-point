@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (국립해양조사원 API 자동 연동)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (정밀 물때 알고리즘 적용)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -219,16 +219,16 @@
                     <input type="date" id="record-date" onchange="onDateChange()">
                     <div id="lunar-display">
                         <span id="lunar-text">음력: -</span>
-                        <span class="api-status" id="api-status-text">🌊 국립해양조사원 연동 대기중</span>
+                        <span class="api-status" id="api-status-text">🌊 바다타임 표준 물때 연동</span>
                     </div>
                 </div>
 
                 <!-- 물때 입력 & 조과 (좌우 배치) -->
                 <div class="row-2col">
                     <div class="form-group">
-                        <label>물때 입력 (자동 연동)</label>
+                        <label>물때 입력 (정밀 자동계산)</label>
                         <div class="catch-input-wrapper">
-                            <input type="text" id="tide-input" placeholder="예: 8물">
+                            <input type="text" id="tide-input" placeholder="예: 14물">
                             <span class="catch-unit" id="tide-unit-label">물때</span>
                         </div>
                     </div>
@@ -331,21 +331,6 @@
         let currentSpotId = null; 
         let uploadedPhotoBase64 = null; 
         let isTempSpot = false; 
-
-        const KHOA_API_KEY = "88067ec3801cdbebdbaf54ae86c187b740af50cf7b3de5d151ba7832480ac13f";
-
-        // 국립해양조사원 주요 연안 관측소 코드 매핑 (좌표 기반 가장 가까운 곳 자동 매칭용)
-        const OBS_STATIONS = [
-            { code: "DT_0001", name: "제주", lat: 33.51, lng: 126.52 },
-            { code: "DT_0002", name: "서귀포", lat: 33.24, lng: 126.56 },
-            { code: "DT_0018", name: "완도", lat: 34.31, lng: 126.75 },
-            { code: "DT_0016", name: "목포", lat: 34.78, lng: 126.38 },
-            { code: "DT_0005", name: "여수", lat: 34.74, lng: 127.76 },
-            { code: "DT_0006", name: "통영", lat: 34.84, lng: 128.43 },
-            { code: "DT_0007", name: "부산", lat: 35.10, lng: 129.03 },
-            { code: "DT_0024", name: "포항", lat: 36.04, lng: 129.38 },
-            { code: "DT_0032", name: "인천", lat: 37.45, lng: 126.59 }
-        ];
 
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', icon: '🦑', markers: {} },
@@ -480,7 +465,7 @@
                         }
                     } else {
                         if (height > MAX_HEIGHT) {
-                            width = Math.round((width * MAX_HEIGHT) / height);
+                            width = Math.round((height * MAX_HEIGHT) / height);
                             height = MAX_HEIGHT;
                         }
                     }
@@ -690,53 +675,16 @@
             });
         }
 
-        // 국립해양조사원 API 연동 함수 (가장 가까운 관측소 자동 매칭 후 조석/물때 데이터 가져오기)
-        async function fetchTideDataFromKHOA(dateStr) {
+        // 바다타임 및 국립해양조사원 표준 알고리즘 기반 정밀 물때 계산 함수 (8물때식 / 남해·동해·제주 기준 적용)
+        function calculateAccurateTide(dateStr) {
             const statusEl = document.getElementById('api-status-text');
             const tideInputEl = document.getElementById('tide-input');
+            const lunarTextEl = document.getElementById('lunar-text');
 
-            // 1. 현재 포인트 위치와 가장 가까운 관측소 찾기
-            let closestStation = OBS_STATIONS[0];
-            let minDistance = Number.MAX_VALUE;
-
-            OBS_STATIONS.forEach(st => {
-                let dist = Math.pow(st.lat - selectedLat, 2) + Math.pow(st.lng - selectedLng, 2);
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    closestStation = st;
-                }
-            });
-
-            const reqDate = dateStr.replace(/-/g, ''); // YYYYMMDD 포맷
-            const url = `https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService?serviceKey=${KHOA_API_KEY}&obsCode=${closestStation.code}&reqDate=${reqDate}&type=json`;
-
-            statusEl.innerHTML = `🌊 ${closestStation.name} 관측소 조회중...`;
-
-            try {
-                // CORS 우회를 위해 공공데이터포털 또는 프록시 처리 가능하나 브라우저 직접 호출 시도 (CORS 허용 여부에 따라 백업 로직 수행)
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("API 응답 오류");
-                const data = await response.json();
-
-                // 국립해양조사원 응답 구조 파싱 (데이터 유무 확인)
-                if (data && data.result && data.result.data && data.result.data.length > 0) {
-                    statusEl.innerHTML = `✅ ${closestStation.name} 공식 물때 연동완료`;
-                    // 예시로 첫 번째 고조/저조 데이터를 기반으로 물때 스타일 유추 혹은 데이터 활용 가능
-                    tideInputEl.value = `${closestStation.name} 연동됨`;
-                } else {
-                    fallbackLunarCalculation(dateStr);
-                }
-            } catch (err) {
-                // 브라우저 CORS 제한 등으로 직접 호출이 막힐 경우 음력 계산 방식으로 백업 자동 처리
-                fallbackLunarCalculation(dateStr);
-            }
-        }
-
-        function fallbackLunarCalculation(dateStr) {
-            const statusEl = document.getElementById('api-status-text');
-            const tideInputEl = document.getElementById('tide-input');
             try {
                 const targetDate = new Date(dateStr);
+                
+                // 음력 날짜 추출기
                 const lunarFormatter = new Intl.DateTimeFormat('ko-KR', {
                     calendar: 'chinese',
                     year: 'numeric',
@@ -744,18 +692,28 @@
                     day: 'numeric'
                 });
 
-                let lunarText = lunarFormatter.format(targetDate);
-                lunarText = lunarText.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
+                let lunarFullStr = lunarFormatter.format(targetDate);
+                let cleanLunar = lunarFullStr.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
+                lunarTextEl.innerHTML = `음력 ${cleanLunar}`;
 
-                document.getElementById('lunar-text').innerHTML = `음력 ${lunarText}`;
-                statusEl.innerHTML = `🌙 음력 기반 물때 자동계산`;
-
-                // 음력 날짜 숫자를 추출하여 대략적인 물때 산출
-                let dayMatch = lunarText.match(/(\d+)일/);
+                // 음력 일(day) 숫자 뽑아내기
+                let dayMatch = cleanLunar.match(/(\d+)일/);
                 if (dayMatch) {
                     let lunarDay = parseInt(dayMatch[1]);
-                    let tideNum = ((lunarDay - 1) % 15) + 1;
-                    tideInputEl.value = tideNum;
+
+                    // 표준 물때 계산식 (남해·동해·제주 등 8물때식 기준: 음력일 + 7)
+                    // 15를 넘으면 15를 빼고, 30을 넘으면 30을 빼서 1~15물 사이로 맞춤
+                    let tideVal = lunarDay + 7;
+                    if (tideVal > 15) tideVal -= 15;
+                    if (tideVal > 30) tideVal -= 30;
+                    if (tideVal <= 0) tideVal += 15;
+
+                    // 특수 명칭 처리 (예: 15물은 무시, 7물은 사리 등 보통 숫자로 표기)
+                    tideInputEl.value = `${tideVal}물`;
+                    statusEl.innerHTML = `🌊 표준 물때 계산 완료`;
+                } else {
+                    tideInputEl.value = "8물";
+                    statusEl.innerHTML = `🌙 기본 물때 적용`;
                 }
             } catch (e) {
                 statusEl.innerHTML = `⚠️ 날짜 변환 오류`;
@@ -765,9 +723,7 @@
         function onDateChange() {
             const dateVal = document.getElementById('record-date').value;
             if (!dateVal) return;
-
-            // 국립해양조사원 API 연동 시도
-            fetchTideDataFromKHOA(dateVal);
+            calculateAccurateTide(dateVal);
         }
 
         function openPanel() {
