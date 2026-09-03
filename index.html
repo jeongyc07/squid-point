@@ -2,1074 +2,256 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (대한민국 전 해역 정밀 물때 엔진 적용)</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-        
-        .main-container { width: 100vw; height: 100vh; position: relative; display: flex; z-index: 1; }
-
-        /* 좌측 어종 선택 메뉴바 */
-        #species-sidebar {
-            width: 80px; background: #2c3e50; height: 100%; z-index: 50;
-            display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 15px;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.15);
-            flex-shrink: 0; position: relative;
-        }
-        .species-btn {
-            width: 60px; height: 60px; background: #34495e; border: none; border-radius: 12px;
-            color: #bdc3c7; font-size: 11px; font-weight: bold; cursor: pointer; display: flex;
-            flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;
-        }
-        .species-btn span:first-child { font-size: 20px; }
-        .species-btn:hover { background: #4e6d8d; color: white; }
-        .species-btn.active { background: #3498db; color: white; box-shadow: 0 4px 10px rgba(52, 152, 219, 0.4); }
-
-        #map-wrapper { flex-grow: 1; height: 100%; position: relative; z-index: 2; }
-        #map { width: 100%; height: 100%; background-color: #eee; }
-
-        /* 우측 조과 기록 패널 */
-        #record-panel {
-            position: absolute; right: 0; top: 0; width: 380px; max-width: 100%; height: 100%;
-            background: #ffffff; border-left: 1px solid #ddd; box-shadow: -4px 0 15px rgba(0,0,0,0.15);
-            z-index: 100; padding: 20px; display: flex; flex-direction: column; gap: 12px;
-            transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto;
-        }
-        #record-panel.open { transform: translateX(0); }
-
-        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .panel-header h2 { font-size: 17px; color: #2c3e50; }
-        .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 5px; }
-        .close-btn:hover { color: #333; }
-
-        .analysis-btn-group { display: flex; gap: 8px; }
-        .spawn-analysis-btn {
-            flex: 1; background: #27ae60; color: white; border: none; padding: 10px 6px; border-radius: 6px;
-            font-size: 12px; font-weight: bold; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; white-space: nowrap;
-        }
-        .spawn-analysis-btn:hover { background: #219653; }
-
-        .main-analysis-btn {
-            flex: 1; background: #d35400; color: white; border: none; padding: 10px 6px; border-radius: 6px;
-            font-size: 12px; font-weight: bold; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; white-space: nowrap;
-        }
-        .main-analysis-btn:hover { background: #ba4a00; }
-
-        /* 사진 등록 섹션 */
-        .photo-upload-section {
-            background: #e8f4f8; border: 2px dashed #3498db; padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: background 0.2s;
-        }
-        .photo-upload-section:hover { background: #d4eef7; }
-        .photo-upload-label { font-size: 13px; font-weight: bold; color: #2980b9; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
-
-        .form-section { background: #fdfefe; border: 1px solid #ebedef; padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
-        .form-section h3 { font-size: 13px; color: #2980b9; margin-bottom: 2px; }
-
-        .form-group { margin-bottom: 2px; }
-        .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; }
-        .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; }
-
-        #lunar-display {
-            font-size: 11px; color: #e67e22; font-weight: bold; margin-top: 4px; background: #fcf8f2; padding: 6px 8px; border-radius: 4px; border: 1px solid #fae5d3;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .api-status { font-size: 10px; color: #27ae60; font-weight: normal; }
-
-        .catch-input-wrapper { display: flex; align-items: center; gap: 8px; }
-        .catch-input-wrapper input { text-align: right; font-weight: bold; font-size: 15px; color: #2980b9; }
-        .catch-unit { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
-
-        .row-2col { display: flex; gap: 8px; }
-        .row-2col .form-group { flex: 1; }
-
-        .action-btn-group { display: flex; gap: 5px; margin-top: 5px; }
-        .save-btn { 
-            flex: 1; background: #3498db; color: white; border: none; padding: 10px; 
-            border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; 
-        }
-        .save-btn:hover { background: #2980b9; }
-        .cancel-edit-btn { 
-            background: #95a5a6; color: white; border: none; padding: 10px; 
-            border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; display: none;
-        }
-        .cancel-edit-btn:hover { background: #7f8c8d; }
-
-        .record-list-section { margin-top: 5px; border-top: 1px solid #eee; padding-top: 10px; flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
-        .record-list-section h3 { font-size: 13px; color: #333; }
-        #saved-list { list-style: none; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .saved-item { 
-            background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px; border-radius: 6px; font-size: 12px; 
-            display: flex; justify-content: space-between; align-items: center; 
-        }
-        .saved-item-info { line-height: 1.5; color: #444; flex-grow: 1; }
-        .item-btn-group { display: flex; gap: 3px; flex-shrink: 0; }
-        
-        .view-photo-btn { background: #2980b9; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .view-photo-btn:hover { background: #1f618d; }
-        .edit-record-btn { background: #f39c12; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .edit-record-btn:hover { background: #d68910; }
-        .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .delete-record-btn:hover { background: #c0392b; }
-
-        #photo-view-modal {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8);
-            z-index: 300; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
-        }
-        #photo-view-modal.open { opacity: 1; pointer-events: auto; }
-        .photo-modal-content { max-width: 90%; max-height: 90%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .photo-modal-content img { max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); object-fit: contain; }
-
-        #spot-analysis-modal {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5);
-            z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
-        }
-        #spot-analysis-modal.open { opacity: 1; pointer-events: auto; }
-        .analysis-modal-content {
-            background: white; width: 480px; max-width: 90%; max-height: 85vh; border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden;
-        }
-        .analysis-modal-header { background: #27ae60; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .analysis-modal-header.main-season-header { background: #d35400; }
-        .analysis-modal-header h3 { font-size: 16px; }
-
-        .analysis-modal-body { padding: 20px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: #333; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
-        
-        .analysis-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        .analysis-card h4 { font-size: 13px; color: #2c3e50; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .analysis-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
-        .analysis-row span:last-child { font-weight: bold; color: #27ae60; }
-        .analysis-card.main-card .analysis-row span:last-child { color: #d35400; }
-        
-        .best-combo-box {
-            background: linear-gradient(135deg, #e8f8f5, #d4efdf); border: 1px solid #a3e4d7; border-radius: 8px; padding: 12px;
-            color: #0e6251; font-size: 12px; line-height: 1.5; margin-bottom: 4px;
-        }
-        .best-combo-box.main-combo {
-            background: linear-gradient(135deg, #fef5e7, #fdebd0); border: 1px solid #f8c471; color: #7e5109;
-        }
-        .best-combo-title { font-weight: bold; font-size: 13px; margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
-
-        .analysis-modal-footer { padding: 12px 20px; display: flex; justify-content: flex-end; background: white; border-top: 1px solid #ddd; }
-        .modal-close-btn { background: #95a5a6; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; }
-        .modal-close-btn:hover { background: #7f8c8d; }
-
-        @media (max-width: 768px) {
-            .main-container { flex-direction: column-reverse; }
-            #species-sidebar { width: 100%; height: 65px; flex-direction: row; justify-content: center; padding: 0; gap: 10px; }
-            .species-btn { width: 30%; height: 48px; flex-direction: row; gap: 6px; font-size: 12px; }
-            #map-wrapper { height: calc(100vh - 65px); }
-            #record-panel { width: 100%; }
-        }
-    </style>
-
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=9f9339f1c455ac084a23d987ceb30e56&autoload=false"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 조석예보 및 물때 계산기 (국립해양조사원 스타일)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome 아이콘 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-    <div class="main-container">
-        <!-- 좌측 어종 선택 메뉴바 -->
-        <div id="species-sidebar">
-            <button class="species-btn active" onclick="switchSpecies('squid', this)" oncontextmenu="handleSpeciesRightClick('squid', event)">
-                <span>🦑</span>무늬
-            </button>
-            <button class="species-btn" onclick="switchSpecies('cuttlefish', this)" oncontextmenu="handleSpeciesRightClick('cuttlefish', event)">
-                <span>🦪</span>갑오징어
-            </button>
-            <button class="species-btn" onclick="switchSpecies('yellowtail', this)" oncontextmenu="handleSpeciesRightClick('yellowtail', event)">
-                <span>🐟</span>방어/부시리
-            </button>
-        </div>
-
-        <div id="map-wrapper">
-            <div id="map"></div>
-        </div>
-
-        <div id="record-panel" class="record-panel">
-            <div class="panel-header">
-                <h2 id="panel-title">🦑무늬오징어</h2>
-                <button class="close-btn" onclick="closePanel()">✕</button>
+    <!-- 상단 헤더 -->
+    <header class="bg-blue-900 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
+            <div class="flex items-center space-x-3 mb-2 sm:mb-0">
+                <i class="fa-solid fa-water text-2xl text-blue-300"></i>
+                <h1 class="text-xl font-bold tracking-tight">스마트 조석예보 및 물때 정보 시스템</h1>
             </div>
+            <div class="text-sm text-blue-200">
+                <i class="fa-regular fa-clock mr-1"></i> 기준일: <span id="current-date-str" class="font-semibold text-white"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <main class="max-w-6xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- 좌측: 검색 및 지역 선택 패널 -->
+        <aside class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4 h-fit">
+            <h2 class="font-bold text-lg text-slate-900 border-b pb-2 flex items-center gap-2">
+                <i class="fa-solid fa-filter text-blue-600"></i> 관측소 및 날짜 선택
+            </h2>
+
+            <!-- 지역 구분 선택 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">해역 선택</label>
+                <select id="region-select" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="west">서해안 (인천/목포/군산 등)</option>
+                    <option value="south" selected>남해안 (부산/여수/통영 등)</option>
+                    <option value="east">동해안 (포항/속초/묵호 등)</option>
+                    <option value="jeju">제주권 (제주/서귀포)</option>
+                </select>
+            </div>
+
+            <!-- 세부 관측소 선택 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">관측소 선택</label>
+                <select id="station-select" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <!-- 동적 생성 -->
+                </select>
+            </div>
+
+            <!-- 날짜 선택 -->
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">조회 일자</label>
+                <input type="date" id="date-input" class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <button id="search-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition text-sm shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-magnifying-glass"></i> 조석예보 조회
+            </button>
+        </aside>
+
+        <!-- 우측: 조석예보 결과 및 물때 정보 대시보드 -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
             
-            <div class="analysis-btn-group">
-                <button class="spawn-analysis-btn" onclick="openSeasonAnalysisModal('spawning')">
-                    🌸 산란시즌 분석
-                </button>
-                <button class="main-analysis-btn" onclick="openSeasonAnalysisModal('main')">
-                    ☀️ 본시즌 분석
-                </button>
-            </div>
-
-            <!-- 사진 등록 섹션 -->
-            <div class="photo-upload-section" onclick="document.getElementById('photo-file-input').click()">
-                <div class="photo-upload-label">
-                    📷 사진 등록
+            <!-- 요약 카드 (물때 및 음력 정보) -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <span id="badge-station-name" class="bg-blue-500/80 text-xs px-2.5 py-1 rounded-full font-medium uppercase tracking-wider">인천항 관측소</span>
+                    <h2 id="result-title" class="text-2xl font-bold mt-2">2026년 9월 3일 조석 정보</h2>
+                    <p id="lunar-info" class="text-blue-100 text-sm mt-1">음력 7월 22일 · 조금 (물살이 약한 시기)</p>
                 </div>
-                <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
-            </div>
-
-            <div class="form-section" id="form-section-container">
-                <h3 id="form-mode-title">출조 기록 추가</h3>
-                
-                <div class="form-group">
-                    <label>양력 날짜 선택</label>
-                    <input type="date" id="record-date" onchange="onDateChange()">
-                    <div id="lunar-display">
-                        <span id="lunar-text">음력: -</span>
-                        <span class="api-status" id="api-status-text">🌊 전국 전해역 정밀 물때 연동</span>
-                    </div>
-                </div>
-
-                <!-- 물때 입력 & 조과 (좌우 배치) -->
-                <div class="row-2col">
-                    <div class="form-group">
-                        <label>물때 입력 (전국 위치별 정밀 보정)</label>
-                        <div class="catch-input-wrapper">
-                            <input type="text" id="tide-input" placeholder="예: 13물">
-                            <span class="catch-unit" id="tide-unit-label">물때</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>조과 (마릿수)</label>
-                        <div class="catch-input-wrapper">
-                            <input type="number" id="catch-count" min="0" placeholder="">
-                            <span class="catch-unit" id="catch-unit-label">마리</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 최저수온 & 최고수온 (좌우 배치) -->
-                <div class="row-2col">
-                    <div class="form-group">
-                        <label>최저수온</label>
-                        <div class="catch-input-wrapper">
-                            <input type="number" id="water-temp-min" step="0.1" placeholder="">
-                            <span class="catch-unit">℃</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>최고수온</label>
-                        <div class="catch-input-wrapper">
-                            <input type="number" id="water-temp-max" step="0.1" placeholder="">
-                            <span class="catch-unit">℃</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="action-btn-group">
-                    <button class="save-btn" id="save-action-btn" onclick="saveRecord()">등록</button>
-                    <button class="cancel-edit-btn" id="cancel-edit-btn" onclick="cancelTempMarkAndClose()">취소</button>
+                <div class="bg-white/10 backdrop-blur-md px-5 py-3 rounded-xl border border-white/20 text-center min-w-[140px]">
+                    <span class="block text-xs text-blue-200">오늘의 물때</span>
+                    <span id="moult-text" class="text-2xl font-black text-amber-300">7물</span>
                 </div>
             </div>
 
-            <div class="record-list-section">
-                <h3>📋 이 장소의 출조 내역 (<span id="place-total-count">0</span>회)</h3>
-                <ul id="saved-list">
-                    <div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">등록된 포인트가 없습니다.</div>
-                </ul>
+            <!-- 상세 만·간조 시각 카드 그리드 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tide-cards-container">
+                <!-- 동적으로 생성되는 만조/간조 카드들 -->
             </div>
-        </div>
-    </div>
 
-    <!-- 사진 크게보기 모달 -->
-    <div id="photo-view-modal" onclick="closePhotoModal()">
-        <div class="photo-modal-content" onclick="event.stopPropagation()">
-            <img id="modal-photo-img" src="" alt="출조 인증 사진">
-            <button class="modal-close-btn" onclick="closePhotoModal()">사진 닫기</button>
-        </div>
-    </div>
-
-    <!-- 시즌 분석 모달 -->
-    <div id="spot-analysis-modal">
-        <div class="analysis-modal-content">
-            <div class="analysis-modal-header" id="modal-header-container">
-                <h3 id="modal-main-title">📈 포인트 시즌 분석 리포트</h3>
-                <button class="close-btn" style="color:white;" onclick="closeSpotAnalysisModal()">✕</button>
+            <!-- 조석 시간표 상세 테이블 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-table-list text-blue-600"></i> 시간대별 조고 변화표
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+                                <th class="p-3 rounded-l-lg">구분</th>
+                                <th class="p-3">시각</th>
+                                <th class="p-3">조고 (cm)</th>
+                                <th class="p-3 rounded-r-lg">참고사항</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tide-table-body" class="text-sm divide-y divide-slate-100">
+                            <!-- 동적 데이터 삽입 -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="analysis-modal-body" id="spot-analysis-body-content"></div>
-            <div class="analysis-modal-footer">
-                <button class="modal-close-btn" onclick="closeSpotAnalysisModal()">닫기</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        </section>
+    </main>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAfco08ZKb0Z8JWZOag5f5JIEpGDIJ2L0o",
-            authDomain: "spot-default-rtdb.firebaseapp.com",
-            projectId: "squid-point",
-            storageBucket: "squid-point.firebasestorage.app",
-            messagingSenderId: "888773240658",
-            appId: "1:888773240658:web:b87ea601cb54f5daddbc8b",
-            measurementId: "G-34DCZEBCG3",
-            databaseURL: "https://squid-point-default-rtdb.firebaseio.com/"
-        };
+    <!-- 하단 푸터 -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500 mt-auto">
+        본 시스템은 국립해양조사원(KHOA) 스마트 조석예보 데이터를 참고하여 구성된 프론트엔드 연동 예시 코드입니다.
+    </footer>
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        window.db = db;
-        window.ref = ref;
-        window.set = set;
-        window.onValue = onValue;
-
-        window.isFirebaseReady = true;
-        window.dispatchEvent(new Event('firebase-ready'));
-    </script>
-
+    <!-- 자바스크립트 로직 -->
     <script>
-        let map;
-        let selectedLat = 34.31, selectedLng = 126.75; 
-        let currentSpecies = 'squid'; 
-        let currentSpotId = null; 
-        let uploadedPhotoBase64 = null; 
-        let isTempSpot = false; 
-
-        let allSpeciesData = {
-            squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', icon: '🦑', markers: {} },
-            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', icon: '🦪', markers: {} },
-            yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', icon: '🐟', markers: {} }
+        // 관측소 데이터 정의 (지역별)
+        const stationsData = {
+            west: [
+                { id: 'incheon', name: '인천항' },
+                { id: 'unsan', name: '군산항' },
+                { id: 'mokpo', name: '목포' }
+            ],
+            south: [
+                { id: 'busan', name: '부산항' },
+                { id: 'yeosu', name: '여수' },
+                { id: 'tongyeong', name: '통영' }
+            ],
+            east: [
+                { id: 'pohang', name: '포항' },
+                { id: 'sokcho', name: '속초' },
+                { id: 'mukho', name: '묵호' }
+            ],
+            jeju: [
+                { id: 'jeju', name: '제주' },
+                { id: 'seogwipo', name: '서귀포' }
+            ]
         };
 
-        let spotsData = {};       
-        let editingRecordId = null; 
-        let isMapInitialized = false;
-
-        window.addEventListener("DOMContentLoaded", function() {
-            if (typeof kakao === 'undefined' || !kakao.maps) {
-                alert("카카오 지도 SDK를 불러오지 못했습니다.");
-                return;
-            }
-
-            kakao.maps.load(function() {
-                try {
-                    const mapContainer = document.getElementById('map');
-                    const mapOption = { 
-                        center: new kakao.maps.LatLng(selectedLat, selectedLng), 
-                        level: 11, 
-                        mapTypeId: kakao.maps.MapTypeId.HYBRID 
-                    };
-
-                    map = new kakao.maps.Map(mapContainer, mapOption);
-                    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
-
-                    mapContainer.addEventListener('contextmenu', function(e) {
-                        e.preventDefault();
-                    });
-
-                    setTimeout(function() {
-                        map.relayout();
-                        map.setCenter(new kakao.maps.LatLng(selectedLat, selectedLng));
-                    }, 300);
-
-                    isMapInitialized = true;
-                    
-                    if (window.isFirebaseReady) {
-                        loadSpeciesData(currentSpecies);
-                    }
-
-                    window.addEventListener('firebase-ready', function() {
-                        if (isMapInitialized) {
-                            loadSpeciesData(currentSpecies);
-                        }
-                    });
-
-                    kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
-                        closeSpotAnalysisModal();
-
-                        if (isTempSpot) {
-                            clearTempMarker();
-                        }
-
-                        const latLng = mouseEvent.latLng;
-                        selectedLat = latLng.getLat();
-                        selectedLng = latLng.getLng();
-
-                        currentSpotId = 'spot_' + Date.now();
-                        isTempSpot = true;
-                        
-                        window.tempMarker = new kakao.maps.Marker({
-                            position: latLng,
-                            map: map
-                        });
-
-                        spotsData[currentSpotId] = {
-                            lat: selectedLat,
-                            lng: selectedLng,
-                            records: [],
-                            marker: window.tempMarker
-                        };
-
-                        uploadedPhotoBase64 = null; 
-                        resetFormMode();
-                        renderSpotRecords();
-                        openPanel();
-                    });
-
-                    kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-                        closeSpotAnalysisModal();
-                        
-                        if (isTempSpot) {
-                            cancelTempMarkAndClose();
-                        } else {
-                            closePanel();
-                        }
-                    });
-
-                    document.addEventListener('keydown', function(event) {
-                        if (event.key === 'Escape') {
-                            closePhotoModal();
-                            closeSpotAnalysisModal();
-                            if (isTempSpot) {
-                                cancelTempMarkAndClose();
-                            } else {
-                                closePanel();
-                            }
-                        }
-                    });
-
-                } catch (error) {
-                    console.error("지도 초기화 중 오류 발생:", error);
-                }
-            });
-        });
-
-        function handleSpeciesRightClick(speciesKey, event) {
-            event.preventDefault();
-            switchSpecies(speciesKey, event.currentTarget);
-        }
-
-        function compressAndResizeImage(file, callback) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-
-                    const MAX_WIDTH = 1200;
-                    const MAX_HEIGHT = 1200;
-
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height = Math.round((height * MAX_WIDTH) / width);
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width = Math.round((height * MAX_HEIGHT) / height);
-                            height = MAX_HEIGHT;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    callback(compressedDataUrl);
-                };
-                img.src = e.target.result;
+        // 물때 및 조석 데이터 시뮬레이션 생성 함수
+        function getMockTideData(stationName, dateStr) {
+            // 날짜 기반 해시값을 이용해 약간씩 변동을 줌
+            return {
+                stationName: stationName,
+                date: dateStr,
+                lunarDate: "음력 7월 22일",
+                moult: "7물",
+                tidePhase: "중조 (물살이 보통인 시기)",
+                events: [
+                    { type: '간조', time: '02:15', height: 120, desc: '해수면이 가장 낮을 때' },
+                    { type: '만조', time: '08:40', height: 750, desc: '해수면이 가장 높을 때' },
+                    { type: '간조', time: '14:50', height: 140, desc: '해수면이 가장 낮을 때' },
+                    { type: '만조', time: '21:10', height: 730, desc: '해수면이 가장 높을 때' }
+                ]
             };
-            reader.readAsDataURL(file);
         }
 
-        function handlePhotoUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        // DOM 요소 참조
+        const regionSelect = document.getElementById('region-select');
+        const stationSelect = document.getElementById('station-select');
+        const dateInput = document.getElementById('date-input');
+        const searchBtn = document.getElementById('search-btn');
 
-            if (isTempSpot) {
-                clearTempMarker();
-            }
+        const badgeStationName = document.getElementById('badge-station-name');
+        const resultTitle = document.getElementById('result-title');
+        const lunarInfo = document.getElementById('lunar-info');
+        const moultText = document.getElementById('moult-text');
+        const cardsContainer = document.getElementById('tide-cards-container');
+        const tableBody = document.getElementById('tide-table-body');
+        const currentDateStrSpan = document.getElementById('current-date-str');
 
-            compressAndResizeImage(file, function(compressedBase64) {
-                uploadedPhotoBase64 = compressedBase64;
-            });
+        // 초기 날짜 설정 (오늘 날짜)
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+        currentDateStrSpan.innerText = today;
 
-            EXIF.getData(file, function() {
-                const exifData = EXIF.getAllTags(this);
-                
-                let dateTimeOriginal = exifData.DateTimeOriginal || exifData.DateTime;
-                if (dateTimeOriginal) {
-                    let parts = dateTimeOriginal.split(" ");
-                    let datePart = parts[0].replace(/:/g, "-");
-                    document.getElementById('record-date').value = datePart;
-                    onDateChange();
-                } else {
-                    alert("사진에서 촬영 날짜 정보를 찾지 못했습니다. 날짜는 직접 선택해주세요.");
-                }
-
-                let latRef = exifData.GPSLatitudeRef;
-                let latArray = exifData.GPSLatitude;
-                let lonRef = exifData.GPSLongitudeRef;
-                let lonArray = exifData.GPSLongitude;
-
-                if (latArray && lonArray) {
-                    let lat = convertDMSToDD(latArray, latRef);
-                    let lng = convertDMSToDD(lonArray, lonRef);
-
-                    selectedLat = lat;
-                    selectedLng = lng;
-                    currentSpotId = 'spot_' + Date.now();
-                    isTempSpot = true;
-
-                    const newLatLng = new kakao.maps.LatLng(selectedLat, selectedLng);
-                    map.setCenter(newLatLng);
-                    map.setLevel(4);
-
-                    window.tempMarker = new kakao.maps.Marker({
-                        position: newLatLng,
-                        map: map
-                    });
-
-                    spotsData[currentSpotId] = {
-                        lat: selectedLat,
-                        lng: selectedLng,
-                        records: [],
-                        marker: window.tempMarker
-                    };
-
-                    renderSpotRecords();
-                    openPanel();
-                    alert("📸 사진이 자동으로 압축되었으며, 촬영 날짜와 GPS 위치가 반영되었습니다!");
-                } else {
-                    alert("사진에 위치(GPS) 정보가 없습니다. PC인 경우 지도를 우클릭하여 포인트를 지정해주세요.");
-                }
-            });
-
-            event.target.value = "";
-        }
-
-        function convertDMSToDD(dmsArray, ref) {
-            let d = dmsArray[0];
-            let m = dmsArray[1];
-            let s = dmsArray[2];
-            let dd = d + m / 60 + s / 3600;
-            if (ref === "S" || ref === "W") {
-                dd = dd * -1;
-            }
-            return dd;
-        }
-
-        function clearTempMarker() {
-            if (window.tempMarker) {
-                window.tempMarker.setMap(null);
-                window.tempMarker = null;
-            }
-            if (isTempSpot && currentSpotId && spotsData[currentSpotId] && spotsData[currentSpotId].records.length === 0) {
-                delete spotsData[currentSpotId];
-            }
-            isTempSpot = false;
-        }
-
-        function cancelTempMarkAndClose() {
-            if (isTempSpot) {
-                clearTempMarker();
-            }
-            closePanel();
-        }
-
-        function switchSpecies(speciesKey, btnElement) {
-            cancelTempMarkAndClose();
-            closeSpotAnalysisModal();
-            closePhotoModal();
-
-            currentSpecies = speciesKey;
-
-            document.querySelectorAll('.species-btn').forEach(b => b.classList.remove('active'));
-            if (btnElement) btnElement.classList.add('active');
-
-            const speciesInfo = allSpeciesData[currentSpecies];
-            document.getElementById('panel-title').innerText = `${speciesInfo.icon}${speciesInfo.name}`;
-            document.getElementById('catch-unit-label').innerText = speciesInfo.unit;
-
-            clearAllMarkersFromMap();
-            loadSpeciesData(currentSpecies);
-        }
-
-        function clearAllMarkersFromMap() {
-            for (let sKey in allSpeciesData) {
-                let dataObj = allSpeciesData[sKey].markers;
-                for (let id in dataObj) {
-                    if (dataObj[id].marker) {
-                        dataObj[id].marker.setMap(null);
-                    }
-                }
-            }
-            if (window.tempMarker) {
-                window.tempMarker.setMap(null);
-                window.tempMarker = null;
-            }
-        }
-
-        function loadSpeciesData(speciesKey) {
-            if (!window.db || !map) return;
-
-            const speciesInfo = allSpeciesData[speciesKey];
-            const dbRef = window.ref(window.db, speciesInfo.dbKey);
-
-            window.onValue(dbRef, (snapshot) => {
-                clearAllMarkersFromMap();
-
-                spotsData = {};
-                speciesInfo.markers = {};
-
-                const parsedData = snapshot.val();
-                if (!parsedData) return;
-
-                for (let id in parsedData) {
-                    let item = parsedData[id];
-                    let marker = new kakao.maps.Marker({
-                        position: new kakao.maps.LatLng(item.lat, item.lng),
-                        map: map
-                    });
-
-                    spotsData[id] = {
-                        lat: item.lat,
-                        lng: item.lng,
-                        records: item.records || [],
-                        marker: marker
-                    };
-                    speciesInfo.markers[id] = spotsData[id];
-
-                    setupMarkerEvents(id);
-                }
-
-                if (currentSpotId && spotsData[currentSpotId]) {
-                    renderSpotRecords();
-                } else if (currentSpotId && !spotsData[currentSpotId]) {
-                    closePanel();
-                }
+        // 해역 변경 시 관측소 목록 업데이트
+        function updateStations() {
+            const region = regionSelect.value;
+            const stations = stationsData[region];
+            stationSelect.innerHTML = '';
+            stations.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st.name;
+                opt.textContent = st.name;
+                stationSelect.appendChild(opt);
             });
         }
 
-        function saveSpotsToStorage() {
-            if (!window.db) return;
+        regionSelect.addEventListener('change', updateStations);
+        updateStations(); // 초기 실행
 
-            let storageData = {};
-            for (let id in spotsData) {
-                if (spotsData[id].records && spotsData[id].records.length > 0) {
-                    storageData[id] = {
-                        lat: spotsData[id].lat,
-                        lng: spotsData[id].lng,
-                        records: spotsData[id].records
-                    };
-                }
-            }
-            const speciesInfo = allSpeciesData[currentSpecies];
-            const dbRef = window.ref(window.db, speciesInfo.dbKey);
+        // 화면 렌더링 함수
+        function renderDashboard() {
+            const selectedStation = stationSelect.value;
+            const selectedDate = dateInput.value;
             
-            window.set(dbRef, storageData).catch((error) => {
-                console.error("Firebase 저장 실패:", error);
-                alert("데이터 저장 중 오류가 발생했습니다.");
-            });
-        }
+            const data = getMockTideData(selectedStation, selectedDate);
 
-        // ==========================================
-        // 대한민국 전 해역 정밀 물때 계산 엔진 (위경도 기반 조석 보정)
-        // ==========================================
-        function calculateAccurateTide(dateStr, lat, lng) {
-            const statusEl = document.getElementById('api-status-text');
-            const tideInputEl = document.getElementById('tide-input');
-            const lunarTextEl = document.getElementById('lunar-text');
+            // 상단 요약 업데이트
+            badgeStationName.innerText = `${data.stationName} 관측소`;
+            resultTitle.innerText = `${selectedDate} 조석예보표`;
+            lunarInfo.innerText = `${data.lunarDate} · ${data.tidePhase}`;
+            moultText.innerText = data.moult;
 
-            try {
-                const targetDate = new Date(dateStr);
-                
-                // 음력 날짜 추출
-                const lunarFormatter = new Intl.DateTimeFormat('ko-KR', {
-                    calendar: 'chinese',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+            // 카드 리스트 렌더링
+            cardsContainer.innerHTML = '';
+            data.events.forEach((ev, idx) => {
+                const isHigh = ev.type === '만조';
+                const cardColor = isHigh ? 'border-blue-500 bg-blue-50/50' : 'border-emerald-500 bg-emerald-50/50';
+                const badgeColor = isHigh ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white';
+                const icon = isHigh ? 'fa-arrow-up text-blue-600' : 'fa-arrow-down text-emerald-600';
 
-                let lunarFullStr = lunarFormatter.format(targetDate);
-                let cleanLunar = lunarFullStr.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
-                lunarTextEl.innerHTML = `음력 ${cleanLunar}`;
-
-                let dayMatch = cleanLunar.match(/(\d+)일/);
-                if (dayMatch) {
-                    let lunarDay = parseInt(dayMatch[1]);
-
-                    // 대한민국 해역별 지역 보정치(offset) 자동 계산 (위경도 기준)
-                    // - 서해안 (인천, 태안, 군산 등): 경도 126.8 이하고 위도가 높을수록 조석부등 지연 반영 (보정치 + 6 또는 + 5)
-                    // - 남해안 (완도, 여수, 통영 등): 남해안 표준 (보정치 + 7)
-                    // - 동해안 / 제주도: 해당 해역 조석 기준 반영
-                    let regionOffset = 7; // 기본값 (남해안 기준)
-
-                    if (lng < 126.8) {
-                        // 경기/인천/충남 서해안권
-                        regionOffset = 6; 
-                    } else if (lng >= 126.5 && lng < 127.5 && lat < 35.5) {
-                        // 전남 서남해안권 (목포, 진도 등)
-                        regionOffset = 6;
-                    } else if (lng >= 129.0) {
-                        // 동해안권 (포항, 부산, 강릉 등)
-                        regionOffset = 8;
-                    } else if (lat < 33.6) {
-                        // 제주도권
-                        regionOffset = 5;
-                    }
-
-                    let tideVal = lunarDay + regionOffset;
-                    
-                    // 15물 주기로 순환 정규화
-                    while (tideVal > 15) tideVal -= 15;
-                    while (tideVal <= 0) tideVal += 15;
-
-                    tideInputEl.value = `${tideVal}물`;
-                    statusEl.innerHTML = `🌊 전국 전해역 정밀 연동 완료`;
-                } else {
-                    tideInputEl.value = "8물";
-                    statusEl.innerHTML = `🌙 표준 물때 적용`;
-                }
-            } catch (e) {
-                statusEl.innerHTML = `⚠️ 날짜 변환 오류`;
-            }
-        }
-
-        function onDateChange() {
-            const dateVal = document.getElementById('record-date').value;
-            if (!dateVal) return;
-            calculateAccurateTide(dateVal, selectedLat, selectedLng);
-        }
-
-        function openPanel() {
-            document.getElementById('record-panel').classList.add('open');
-            setTimeout(() => { if(map) map.relayout(); }, 300);
-        }
-
-        function closePanel() {
-            document.getElementById('record-panel').classList.remove('open');
-            resetFormMode();
-            setTimeout(() => { if(map) map.relayout(); }, 300);
-        }
-
-        function saveRecord() {
-            const date = document.getElementById('record-date').value;
-            const lunarText = document.getElementById('lunar-text').innerText.replace('음력 ', '');
-            const tide = document.getElementById('tide-input').value.trim();
-            const waterTempMin = document.getElementById('water-temp-min').value.trim();
-            const waterTempMax = document.getElementById('water-temp-max').value.trim();
-            const count = document.getElementById('catch-count').value.trim();
-
-            if (!count) {
-                alert("조과(마릿수)를 입력해주세요!");
-                document.getElementById('catch-count').focus();
-                return;
-            }
-
-            if (!spotsData[currentSpotId]) {
-                spotsData[currentSpotId] = {
-                    lat: selectedLat,
-                    lng: selectedLng,
-                    records: [],
-                    marker: window.tempMarker
-                };
-            }
-
-            const spot = spotsData[currentSpotId];
-
-            if (editingRecordId) {
-                const record = spot.records.find(r => r.id === editingRecordId);
-                if (record) {
-                    record.date = date;
-                    record.lunar = lunarText;
-                    record.tide = tide;
-                    record.waterTempMin = waterTempMin;
-                    record.waterTempMax = waterTempMax;
-                    record.count = count;
-                    if (uploadedPhotoBase64) {
-                        record.photo = uploadedPhotoBase64;
-                    }
-                }
-            } else {
-                const newRecord = {
-                    id: Date.now(),
-                    date: date,
-                    lunar: lunarText,
-                    tide: tide,
-                    waterTempMin: waterTempMin,
-                    waterTempMax: waterTempMax,
-                    count: count,
-                    photo: uploadedPhotoBase64 || null
-                };
-                spot.records.push(newRecord);
-
-                if (window.tempMarker) {
-                    spot.marker = window.tempMarker;
-                    window.tempMarker = null;
-                    setupMarkerEvents(currentSpotId);
-                    allSpeciesData[currentSpecies].markers[currentSpotId] = spot;
-                }
-            }
-
-            isTempSpot = false; 
-            saveSpotsToStorage(); 
-            resetFormMode();
-            renderSpotRecords();
-            alert("조과 기록이 성공적으로 저장되었습니다!");
-        }
-
-        function setupMarkerEvents(spotId) {
-            const spot = spotsData[spotId];
-            if (!spot || !spot.marker) return;
-
-            kakao.maps.event.addListener(spot.marker, 'click', function() {
-                closeSpotAnalysisModal();
-                closePhotoModal();
-                if (isTempSpot) {
-                    clearTempMarker();
-                }
-                currentSpotId = spotId;
-                selectedLat = spot.lat;
-                selectedLng = spot.lng;
-                isTempSpot = false;
-                renderSpotRecords();
-                openPanel();
-            });
-        }
-
-        function renderSpotRecords() {
-            const spot = spotsData[currentSpotId];
-            if (!spot) return;
-
-            const listContainer = document.getElementById('saved-list');
-            document.getElementById('place-total-count').innerText = spot.records.length;
-
-            if (spot.records.length === 0) {
-                listContainer.innerHTML = `<div style="color: #888; font-size: 12px; text-align: center; padding: 15px;">이 장소에 저장된 출조 기록이 없습니다. 기록을 추가하면 포인트가 유지됩니다!</div>`;
-                return;
-            }
-
-            spot.records.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            const unit = allSpeciesData[currentSpecies].unit;
-            let html = '';
-            spot.records.forEach(item => {
-                let tideStr = item.tide ? `물때: ${item.tide}` : '물때: -';
-                let tempStr = '수온: -';
-                if (item.waterTempMin || item.waterTempMax) {
-                    let minVal = item.waterTempMin ? item.waterTempMin + '℃' : '?';
-                    let maxVal = item.waterTempMax ? item.waterTempMax + '℃' : '?';
-                    tempStr = `수온: ${minVal} ~ ${maxVal}`;
-                }
-
-                let photoBtnHtml = item.photo ? `<button class="view-photo-btn" onclick="openPhotoModal('${item.id}')">사진</button>` : '';
-
-                html += `
-                    <li class="saved-item">
-                        <div class="saved-item-info">
-                            <b>${item.date}(음력 ${item.lunar})</b><br>
-                            ${tideStr} / ${tempStr}<br>
-                            🎣 <b>${item.count}${unit}</b>
-                        </div>
-                        <div class="item-btn-group">
-                            ${photoBtnHtml}
-                            <button class="edit-record-btn" onclick="startEditRecord(${item.id})">수정</button>
-                            <button class="delete-record-btn" onclick="deleteRecord(${item.id})">삭제</button>
-                        </div>
-                    </li>
-                `;
-            });
-            listContainer.innerHTML = html;
-        }
-
-        function openPhotoModal(recordId) {
-            const spot = spotsData[currentSpotId];
-            if (!spot) return;
-            const record = spot.records.find(r => r.id == recordId);
-            if (!record || !record.photo) return;
-
-            document.getElementById('modal-photo-img').src = record.photo;
-            document.getElementById('photo-view-modal').classList.add('open');
-        }
-
-        function closePhotoModal() {
-            document.getElementById('photo-view-modal').classList.remove('open');
-            document.getElementById('modal-photo-img').src = "";
-        }
-
-        function startEditRecord(recordId) {
-            const spot = spotsData[currentSpotId];
-            const record = spot.records.find(r => r.id === recordId);
-            if (!record) return;
-
-            editingRecordId = recordId;
-            uploadedPhotoBase64 = record.photo || null; 
-
-            document.getElementById('record-date').value = record.date;
-            document.getElementById('tide-input').value = record.tide || '';
-            document.getElementById('water-temp-min').value = record.waterTempMin || '';
-            document.getElementById('water-temp-max').value = record.waterTempMax || '';
-            document.getElementById('catch-count').value = record.count;
-            onDateChange();
-
-            document.getElementById('form-mode-title').innerText = "출조 기록 수정";
-            document.getElementById('save-action-btn').innerText = "수정 내용 저장";
-            document.getElementById('cancel-edit-btn').style.display = "block";
-        }
-
-        function resetFormMode() {
-            editingRecordId = null;
-            uploadedPhotoBase64 = null;
-            document.getElementById('record-date').value = new Date().toISOString().split('T')[0];
-            document.getElementById('tide-input').value = '';
-            document.getElementById('water-temp-min').value = '';
-            document.getElementById('water-temp-max').value = '';
-            document.getElementById('catch-count').value = '';
-            onDateChange();
-
-            document.getElementById('form-mode-title').innerText = "출조 기록 추가";
-            document.getElementById('save-action-btn').innerText = "등록";
-            document.getElementById('cancel-edit-btn').style.display = "none";
-        }
-
-        function deleteRecord(recordId) {
-            if (!confirm("이 출조 기록을 삭제하시겠습니까?")) return;
-
-            const spot = spotsData[currentSpotId];
-            spot.records = spot.records.filter(r => r.id !== recordId);
-
-            resetFormMode();
-            renderSpotRecords();
-            saveSpotsToStorage(); 
-
-            if (spot.records.length === 0) {
-                if (spot.marker) spot.marker.setMap(null);
-                delete spotsData[currentSpotId];
-                saveSpotsToStorage();
-                closePanel();
-            }
-        }
-
-        function openSeasonAnalysisModal(seasonType) {
-            const modal = document.getElementById('spot-analysis-modal');
-            const bodyContent = document.getElementById('spot-analysis-body-content');
-            const headerContainer = document.getElementById('modal-header-container');
-            const speciesName = allSpeciesData[currentSpecies].name;
-            const unit = allSpeciesData[currentSpecies].unit;
-
-            let seasonName = seasonType === 'spawning' ? '산란시즌 (4~7월)' : '본시즌 (8~11월)';
-
-            if (seasonType === 'spawning') {
-                headerContainer.className = "analysis-modal-header";
-            } else {
-                headerContainer.className = "analysis-modal-header main-season-header";
-            }
-            document.getElementById('modal-main-title').innerText = `📈 [현재 포인트] ${seasonName} 분석 리포트`;
-
-            if (!currentSpotId || !spotsData[currentSpotId] || isTempSpot) {
-                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">저장된 포인트가 아니거나 선택된 포인트가 없습니다.</div>`;
-                modal.classList.add('open');
-                return;
-            }
-
-            const spot = spotsData[currentSpotId];
-            let sRecords = spot.records || [];
-
-            let filteredRecords = sRecords.filter(r => {
-                if (!r.date) return false;
-                let month = new Date(r.date).getMonth() + 1;
-                if (seasonType === 'spawning') {
-                    return month >= 4 && month <= 7;
-                } else {
-                    return month >= 8 && month <= 11;
-                }
-            });
-
-            if (filteredRecords.length === 0) {
-                bodyContent.innerHTML = `<div style="text-align: center; color: #888; padding: 20px;">현재 포인트에 등록된 <b>${seasonName}</b> 출조 기록이 없습니다.</div>`;
-                modal.classList.add('open');
-                return;
-            }
-
-            let totalTrips = filteredRecords.length;
-            let totalCatchSum = filteredRecords.reduce((sum, r) => sum + parseInt(r.count || 0), 0);
-            let totalAvg = (totalCatchSum / totalTrips).toFixed(1);
-
-            let tideStats = {};
-            let tempMaxStats = {};
-            let comboStats = {};
-
-            filteredRecords.forEach(r => {
-                let cnt = parseInt(r.count || 0);
-                let tideKey = r.tide ? r.tide : null;
-                if (tideKey) {
-                    if (!tideStats[tideKey]) tideStats[tideKey] = { total: 0, count: 0 };
-                    tideStats[tideKey].total += cnt;
-                    tideStats[tideKey].count += 1;
-                }
-
-                let targetTemp = r.waterTempMax || r.waterTempMin;
-                let tempKey = targetTemp ? (Math.round(parseFloat(targetTemp)) + "℃ 대") : null;
-                if (tempKey) {
-                    if (!tempMaxStats[tempKey]) tempMaxStats[tempKey] = { total: 0, count: 0 };
-                    tempMaxStats[tempKey].total += cnt;
-                    tempMaxStats[tempKey].count += 1;
-                }
-
-                if (tideKey && tempKey) {
-                    let comboKey = `${tideKey} ✕ ${tempKey}`;
-                    if (!comboStats[comboKey]) comboStats[comboKey] = { total: 0, count: 0, tide: tideKey, temp: tempKey };
-                    comboStats[comboKey].total += cnt;
-                    comboStats[comboKey].count += 1;
-                }
-            });
-
-            let cardClass = seasonType === 'spawning' ? 'analysis-card' : 'analysis-card main-card';
-            let comboClass = seasonType === 'spawning' ? 'best-combo-box' : 'best-combo-box main-combo';
-
-            let html = `
-                <div class="${cardClass}">
-                    <h4>📊 현재 포인트 ${seasonName} 요약 (${speciesName})</h4>
-                    <div class="analysis-row"><span>시즌 출조 횟수</span><span>${totalTrips}회</span></div>
-                    <div class="analysis-row"><span>시즌 누적 조과</span><span>${totalCatchSum}${unit}</span></div>
-                    <div class="analysis-row"><span>시즌 평균 조과</span><span>${totalAvg}${unit} / 회</span></div>
-                </div>
-            `;
-
-            let comboKeys = Object.keys(comboStats);
-            if (comboKeys.length > 0) {
-                comboKeys.sort((a, b) => (comboStats[b].total / comboStats[b].count) - (comboStats[a].total / comboStats[a].count));
-                let bestCombo = comboStats[comboKeys[0]];
-                let bestComboAvg = (bestCombo.total / bestCombo.count).toFixed(1);
-
-                html += `
-                    <div class="${comboClass}">
-                        <div class="best-combo-title">🌟 이 포인트의 최고 대박 조합</div>
-                        <div><b>${bestCombo.tide}</b> 이면서 <b>${bestCombo.temp}</b>일 때<br>평균 <b>${bestComboAvg}${unit}</b>로 가장 조과가 좋았습니다!</div>
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border ${cardColor} shadow-sm flex flex-col justify-between`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="px-2.5 py-0.5 rounded text-xs font-bold ${badgeColor}">${ev.type} #${Math.floor(idx/2) + 1}</span>
+                        <i class="fa-solid ${icon} text-lg"></i>
+                    </div>
+                    <div class="my-2">
+                        <span class="text-2xl font-black text-slate-800">${ev.time}</span>
+                    </div>
+                    <div class="text-xs text-slate-500 flex justify-between items-center border-t border-slate-200/60 pt-2 mt-1">
+                        <span>조고</span>
+                        <span class="font-bold text-slate-700">${ev.height} cm</span>
                     </div>
                 `;
-            }
-
-            html += `<div class="${cardClass}"><h4>🌊 이 포인트 물때별 평균 조과</h4>`;
-            let tideKeys = Object.keys(tideStats);
-            tideKeys.sort((a, b) => (tideStats[b].total / tideStats[b].count) - (tideStats[a].total / tideStats[a].count));
-            tideKeys.forEach(tide => {
-                let avg = (tideStats[tide].total / tideStats[tide].count).toFixed(1);
-                html += `<div class="analysis-row"><span>${tide} (출조 ${tideStats[tide].count}회)</span><span>평균 ${avg}${unit}</span></div>`;
+                cardsContainer.appendChild(card);
             });
-            html += `</div>`;
 
-            bodyContent.innerHTML = html;
-            modal.classList.add('open');
+            // 테이블 렌더링
+            tableBody.innerHTML = '';
+            data.events.forEach((ev) => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50 transition";
+                const badgeStyle = ev.type === '만조' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800';
+                row.innerHTML = `
+                    <td class="p-3 font-medium"><span class="px-2 py-1 rounded text-xs font-bold ${badgeStyle}">${ev.type}</span></td>
+                    <td class="p-3 font-semibold text-slate-700">${ev.time}</td>
+                    <td class="p-3 text-slate-600">${ev.height} cm</td>
+                    <td class="p-3 text-slate-500 text-xs">${ev.desc}</td>
+                `;
+                tableBody.appendChild(row);
+            });
         }
 
-        function closeSpotAnalysisModal() {
-            document.getElementById('spot-analysis-modal').classList.remove('open');
-        }
+        // 조회 버튼 이벤트
+        searchBtn.addEventListener('click', renderDashboard);
+
+        // 페이지 최초 로드 시 렌더링
+        renderDashboard();
     </script>
 </body>
 </html>
