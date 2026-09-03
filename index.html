@@ -3,255 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스마트 조석예보 및 물때 계산기 (국립해양조사원 스타일)</title>
+    <title>스마트 낚시포인트 & 조과 기록 (바다정보 연동형)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
     <!-- 상단 헤더 -->
-    <header class="bg-blue-900 text-white shadow-md">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
+    <header class="bg-slate-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
             <div class="flex items-center space-x-3 mb-2 sm:mb-0">
-                <i class="fa-solid fa-water text-2xl text-blue-300"></i>
-                <h1 class="text-xl font-bold tracking-tight">스마트 조석예보 및 물때 정보 시스템</h1>
+                <i class="fa-solid fa-fish-fins text-2xl text-blue-400"></i>
+                <h1 class="text-xl font-bold tracking-tight">낚시포인트 & 조과 기록 시스템 (with KHOA 바다정보)</h1>
             </div>
-            <div class="text-sm text-blue-200">
-                <i class="fa-regular fa-clock mr-1"></i> 기준일: <span id="current-date-str" class="font-semibold text-white"></span>
+            <div class="text-sm text-slate-400 flex items-center gap-4">
+                <span><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> 등록 포인트: <strong id="point-count" class="text-white">3</strong>곳</span>
+                <span><i class="fa-solid fa-fish text-blue-400 mr-1"></i> 총 조과: <strong id="catch-count" class="text-white">5</strong>마리</span>
             </div>
         </div>
     </header>
 
     <!-- 메인 컨테이너 -->
-    <main class="max-w-6xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- 좌측: 검색 및 지역 선택 패널 -->
-        <aside class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4 h-fit">
-            <h2 class="font-bold text-lg text-slate-900 border-b pb-2 flex items-center gap-2">
-                <i class="fa-solid fa-filter text-blue-600"></i> 관측소 및 날짜 선택
+        <!-- 좌측: 조과 기록 입력 및 포인트 관리 패널 -->
+        <section class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-5 h-fit">
+            <h2 class="font-bold text-lg text-slate-900 border-b pb-3 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-blue-600"></i> 새로운 조과 & 포인트 기록
             </h2>
 
-            <!-- 지역 구분 선택 -->
-            <div>
-                <label class="block text-sm font-medium text-slate-600 mb-1">해역 선택</label>
-                <select id="region-select" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    <option value="west">서해안 (인천/목포/군산 등)</option>
-                    <option value="south" selected>남해안 (부산/여수/통영 등)</option>
-                    <option value="east">동해안 (포항/속초/묵호 등)</option>
-                    <option value="jeju">제주권 (제주/서귀포)</option>
-                </select>
-            </div>
-
-            <!-- 세부 관측소 선택 -->
-            <div>
-                <label class="block text-sm font-medium text-slate-600 mb-1">관측소 선택</label>
-                <select id="station-select" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    <!-- 동적 생성 -->
-                </select>
-            </div>
-
-            <!-- 날짜 선택 -->
-            <div>
-                <label class="block text-sm font-medium text-slate-600 mb-1">조회 일자</label>
-                <input type="date" id="date-input" class="w-full border border-slate-300 rounded-lg p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-            </div>
-
-            <button id="search-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition text-sm shadow-sm flex items-center justify-center gap-2">
-                <i class="fa-solid fa-magnifying-glass"></i> 조석예보 조회
-            </button>
-        </aside>
-
-        <!-- 우측: 조석예보 결과 및 물때 정보 대시보드 -->
-        <section class="lg:col-span-3 flex flex-col gap-6">
-            
-            <!-- 요약 카드 (물때 및 음력 정보) -->
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+            <form id="catch-form" class="flex flex-col gap-4">
+                <!-- 어종 선택 -->
                 <div>
-                    <span id="badge-station-name" class="bg-blue-500/80 text-xs px-2.5 py-1 rounded-full font-medium uppercase tracking-wider">인천항 관측소</span>
-                    <h2 id="result-title" class="text-2xl font-bold mt-2">2026년 9월 3일 조석 정보</h2>
-                    <p id="lunar-info" class="text-blue-100 text-sm mt-1">음력 7월 22일 · 조금 (물살이 약한 시기)</p>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">대상 어종</label>
+                    <select id="fish-species" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="무늬오징어">🦑 무늬오징어</option>
+                        <option value="갑오징어">🦑 갑오징어</option>
+                        <option value="참돔">🐟 참돔</option>
+                        <option value="방어/부시리">🐟 방어 / 부시리</option>
+                        <option value="우럭/볼락">🐟 우럭 / 볼락</option>
+                    </select>
                 </div>
-                <div class="bg-white/10 backdrop-blur-md px-5 py-3 rounded-xl border border-white/20 text-center min-w-[140px]">
-                    <span class="block text-xs text-blue-200">오늘의 물때</span>
-                    <span id="moult-text" class="text-2xl font-black text-amber-300">7물</span>
+
+                <!-- 포인트명 / 지역 선택 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">낚시 포인트 (관측소 연동)</label>
+                    <select id="point-station" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="인천항">인천항 (서해)</option>
+                        <option value="군산항">군산항 (서해)</option>
+                        <option value="목포">목포항 (서해)</option>
+                        <option value="부산항" selected>부산항 (남해)</option>
+                        <option value="여수">여수항 (남해)</option>
+                        <option value="통영">통영항 (남해)</option>
+                        <option value="제주">제주항 (제주)</option>
+                        <option value="속초">속초항 (동해)</option>
+                    </select>
+                </div>
+
+                <!-- 날짜 및 시간 -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">출조 일자</label>
+                        <input type="date" id="catch-date" class="w-full border border-slate-300 rounded-xl p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">마릿수</label>
+                        <input type="number" id="catch-num" min="1" value="1" class="w-full border border-slate-300 rounded-xl p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- 사진 업로드 (메타데이터/GPS 연동 시뮬레이션 영역) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">조과 사진 (GPS/날짜 자동연동)</label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 transition bg-slate-50">
+                        <input type="file" id="photo-file" accept="image/*" class="hidden">
+                        <label for="photo-file" class="cursor-pointer flex flex-col items-center">
+                            <i class="fa-solid fa-camera text-2xl text-slate-400 mb-1"></i>
+                            <span class="text-xs text-slate-500">사진을 업로드하면 위치/날짜가 자동 반영됩니다</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 메모 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">포인트 및 히트 채비 메모</label>
+                    <textarea id="catch-memo" rows="2" placeholder="예: 에기 3.5호, 들조류 타이밍에 입질 집중" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i> 조과 및 바다정보 기록하기
+                </button>
+            </form>
+        </section>
+
+        <!-- 우측: 조과 기록 리스트 및 실시간 바다정보(만조/간조/물때) 대시보드 -->
+        <section class="lg:col-span-2 flex flex-col gap-6">
+            
+            <!-- 선택한 포인트의 국립해양조사원 스타일 바다 정보 요약 카드 -->
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 rounded-2xl shadow-md">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span id="info-station-badge" class="bg-blue-600 text-xs px-3 py-1 rounded-full font-medium tracking-wide">부산항 관측소 기준</span>
+                        <h2 class="text-xl font-bold mt-2"><i class="fa-solid fa-water text-blue-300 mr-2"></i>선택 포인트 실시간 바다정보 (조석예보표)</h2>
+                    </div>
+                    <div class="text-right">
+                        <span id="info-lunar" class="text-xs text-blue-200 block">음력 7월 22일</span>
+                        <span id="info-moult" class="text-lg font-black text-amber-300">7물 (중조)</span>
+                    </div>
+                </div>
+
+                <!-- 만조/간조 타임라인 카드 그리드 -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="tide-mini-cards">
+                    <!-- 동적 생성 -->
                 </div>
             </div>
 
-            <!-- 상세 만·간조 시각 카드 그리드 -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tide-cards-container">
-                <!-- 동적으로 생성되는 만조/간조 카드들 -->
-            </div>
+            <!-- 나의 조과 기록 히스토리 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex-grow">
+                <div class="flex justify-between items-center mb-4 border-b pb-3">
+                    <h3 class="font-bold text-lg text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-blue-600"></i> 나의 조과 & 바다환경 히스토리
+                    </h3>
+                    <span class="text-xs text-slate-400">물때와 조고가 함께 기록됩니다</span>
+                </div>
 
-            <!-- 조석 시간표 상세 테이블 -->
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-                <h3 class="font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-table-list text-blue-600"></i> 시간대별 조고 변화표
-                </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
-                                <th class="p-3 rounded-l-lg">구분</th>
-                                <th class="p-3">시각</th>
-                                <th class="p-3">조고 (cm)</th>
-                                <th class="p-3 rounded-r-lg">참고사항</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tide-table-body" class="text-sm divide-y divide-slate-100">
-                            <!-- 동적 데이터 삽입 -->
-                        </tbody>
-                    </table>
+                <!-- 기록 카드 리스트 -->
+                <div id="catch-list" class="flex flex-col gap-3 max-h-[450px] overflow-y-auto pr-1">
+                    <!-- 샘플 데이터 아이템 -->
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-blue-300 transition">
+                        <div class="flex items-start gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 text-xl font-bold shrink-0">
+                                🦑
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-900">무늬오징어</span>
+                                    <span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded font-bold">2마리</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> 부산항 포인트 · 2026-09-03</p>
+                                <p class="text-xs text-slate-600 mt-1 bg-white p-2 rounded border border-slate-200/60">
+                                    🌊 <strong>물때:</strong> 7물 | <strong>만조:</strong> 08:40 (750cm) | <strong>메모:</strong> 들조류에 입질 집중!
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="this.closest('div.flex').remove()" class="text-slate-400 hover:text-rose-500 text-sm p-2">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
         </section>
     </main>
 
-    <!-- 하단 푸터 -->
-    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500 mt-auto">
-        본 시스템은 국립해양조사원(KHOA) 스마트 조석예보 데이터를 참고하여 구성된 프론트엔드 연동 예시 코드입니다.
-    </footer>
-
-    <!-- 자바스크립트 로직 -->
+    <!-- 자바스크립트 연동 로직 -->
     <script>
-        // 관측소 데이터 정의 (지역별)
-        const stationsData = {
-            west: [
-                { id: 'incheon', name: '인천항' },
-                { id: 'unsan', name: '군산항' },
-                { id: 'mokpo', name: '목포' }
-            ],
-            south: [
-                { id: 'busan', name: '부산항' },
-                { id: 'yeosu', name: '여수' },
-                { id: 'tongyeong', name: '통영' }
-            ],
-            east: [
-                { id: 'pohang', name: '포항' },
-                { id: 'sokcho', name: '속초' },
-                { id: 'mukho', name: '묵호' }
-            ],
-            jeju: [
-                { id: 'jeju', name: '제주' },
-                { id: 'seogwipo', name: '서귀포' }
-            ]
+        // 관측소별 바다 데이터 시뮬레이션 (국립해양조사원 조석예보 데이터 구조 모방)
+        const tideDatabase = {
+            "인천항": { lunar: "음력 7월 22일", moult: "7물 (조금)", tides: [{type:'간조', time:'02:15', height:120}, {type:'만조', time:'08:40', height:750}, {type:'간조', time:'14:50', height:140}, {type:'만조', time:'21:10', height:730}] },
+            "군산항": { lunar: "음력 7월 22일", moult: "7물 (조금)", tides: [{type:'간조', time:'03:00', height:150}, {type:'만조', time:'09:20', height:680}, {type:'간조', time:'15:30', height:160}, {type:'만조', time:'21:50', height:670}] },
+            "목포": { lunar: "음력 7월 22일", moult: "7물 (조금)", tides: [{type:'간조', time:'04:10', height:110}, {type:'만조', time:'10:30', height:450}, {type:'간조', time:'16:40', height:130}, {type:'만조', time:'23:00', height:440}] },
+            "부산항": { lunar: "음력 7월 22일", moult: "7물 (중조)", tides: [{type:'간조', time:'01:30', height:35}, {type:'만조', time:'07:50', height:165}, {type:'간조', time:'13:40', height:40}, {type:'만조', time:'20:10', height:155}] },
+            "여수": { lunar: "음력 7월 22일", moult: "7물 (중조)", tides: [{type:'간조', time:'02:00', height:50}, {type:'만조', time:'08:20', height:280}, {type:'간조', time:'14:10', height:55}, {type:'만조', time:'20:40', height:270}] },
+            "통영": { lunar: "음력 7월 22일", moult: "7물 (중조)", tides: [{type:'간조', time:'01:50', height:45}, {type:'만조', time:'08:10', height:240}, {type:'간조', time:'14:00', height:50}, {type:'만조', time:'20:30', height:230}] },
+            "제주": { lunar: "음력 7월 22일", moult: "7물 (무난)", tides: [{type:'간조', time:'02:40', height:70}, {type:'만조', time:'09:00', height:210}, {type:'간조', time:'15:00', height:75}, {type:'만조', time:'21:20', height:200}] },
+            "속초": { lunar: "음력 7월 22일", moult: "7물 (조이사)", tides: [{type:'간조', time:'05:00', height:15}, {type:'만조', time:'11:20', height:35}, {type:'간조', time:'17:00', height:20}, {type:'만조', time:'23:30', height:30}] }
         };
 
-        // 물때 및 조석 데이터 시뮬레이션 생성 함수
-        function getMockTideData(stationName, dateStr) {
-            // 날짜 기반 해시값을 이용해 약간씩 변동을 줌
-            return {
-                stationName: stationName,
-                date: dateStr,
-                lunarDate: "음력 7월 22일",
-                moult: "7물",
-                tidePhase: "중조 (물살이 보통인 시기)",
-                events: [
-                    { type: '간조', time: '02:15', height: 120, desc: '해수면이 가장 낮을 때' },
-                    { type: '만조', time: '08:40', height: 750, desc: '해수면이 가장 높을 때' },
-                    { type: '간조', time: '14:50', height: 140, desc: '해수면이 가장 낮을 때' },
-                    { type: '만조', time: '21:10', height: 730, desc: '해수면이 가장 높을 때' }
-                ]
-            };
-        }
+        const stationSelect = document.getElementById('point-station');
+        const infoStationBadge = document.getElementById('info-station-badge');
+        const infoLunar = document.getElementById('info-lunar');
+        const infoMoult = document.getElementById('info-moult');
+        const tideMiniCards = document.getElementById('tide-mini-cards');
+        const catchForm = document.getElementById('catch-form');
+        const catchList = document.getElementById('catch-list');
+        const catchDateInput = document.getElementById('catch-date');
 
-        // DOM 요소 참조
-        const regionSelect = document.getElementById('region-select');
-        const stationSelect = document.getElementById('station-select');
-        const dateInput = document.getElementById('date-input');
-        const searchBtn = document.getElementById('search-btn');
+        // 오늘 날짜 기본 세팅
+        catchDateInput.value = new Date().toISOString().split('T')[0];
 
-        const badgeStationName = document.getElementById('badge-station-name');
-        const resultTitle = document.getElementById('result-title');
-        const lunarInfo = document.getElementById('lunar-info');
-        const moultText = document.getElementById('moult-text');
-        const cardsContainer = document.getElementById('tide-cards-container');
-        const tableBody = document.getElementById('tide-table-body');
-        const currentDateStrSpan = document.getElementById('current-date-str');
+        // 선택한 관측소에 따라 상단 바다 정보 카드 갱신
+        function updateTideDashboard() {
+            const station = stationSelect.value;
+            const data = tideDatabase[station] || tideDatabase["부산항"];
 
-        // 초기 날짜 설정 (오늘 날짜)
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.value = today;
-        currentDateStrSpan.innerText = today;
+            infoStationBadge.innerText = `${station} 관측소 기준`;
+            infoLunar.innerText = data.lunar;
+            infoMoult.innerText = data.moult;
 
-        // 해역 변경 시 관측소 목록 업데이트
-        function updateStations() {
-            const region = regionSelect.value;
-            const stations = stationsData[region];
-            stationSelect.innerHTML = '';
-            stations.forEach(st => {
-                const opt = document.createElement('option');
-                opt.value = st.name;
-                opt.textContent = st.name;
-                stationSelect.appendChild(opt);
-            });
-        }
-
-        regionSelect.addEventListener('change', updateStations);
-        updateStations(); // 초기 실행
-
-        // 화면 렌더링 함수
-        function renderDashboard() {
-            const selectedStation = stationSelect.value;
-            const selectedDate = dateInput.value;
-            
-            const data = getMockTideData(selectedStation, selectedDate);
-
-            // 상단 요약 업데이트
-            badgeStationName.innerText = `${data.stationName} 관측소`;
-            resultTitle.innerText = `${selectedDate} 조석예보표`;
-            lunarInfo.innerText = `${data.lunarDate} · ${data.tidePhase}`;
-            moultText.innerText = data.moult;
-
-            // 카드 리스트 렌더링
-            cardsContainer.innerHTML = '';
-            data.events.forEach((ev, idx) => {
-                const isHigh = ev.type === '만조';
-                const cardColor = isHigh ? 'border-blue-500 bg-blue-50/50' : 'border-emerald-500 bg-emerald-50/50';
-                const badgeColor = isHigh ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white';
-                const icon = isHigh ? 'fa-arrow-up text-blue-600' : 'fa-arrow-down text-emerald-600';
+            tideMiniCards.innerHTML = '';
+            data.tides.forEach(t => {
+                const isHigh = t.type === '만조';
+                const bgClass = isHigh ? 'bg-blue-800/60 border-blue-400/30' : 'bg-emerald-900/60 border-emerald-400/30';
+                const badgeColor = isHigh ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white';
 
                 const card = document.createElement('div');
-                card.className = `p-4 rounded-xl border ${cardColor} shadow-sm flex flex-col justify-between`;
+                card.className = `p-3 rounded-xl border ${bgClass} backdrop-blur-sm flex flex-col justify-between`;
                 card.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="px-2.5 py-0.5 rounded text-xs font-bold ${badgeColor}">${ev.type} #${Math.floor(idx/2) + 1}</span>
-                        <i class="fa-solid ${icon} text-lg"></i>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded ${badgeColor}">${t.type}</span>
+                        <i class="fa-solid ${isHigh ? 'fa-arrow-up text-blue-300' : 'fa-arrow-down text-emerald-300'}"></i>
                     </div>
-                    <div class="my-2">
-                        <span class="text-2xl font-black text-slate-800">${ev.time}</span>
-                    </div>
-                    <div class="text-xs text-slate-500 flex justify-between items-center border-t border-slate-200/60 pt-2 mt-1">
-                        <span>조고</span>
-                        <span class="font-bold text-slate-700">${ev.height} cm</span>
-                    </div>
+                    <div class="text-lg font-black text-white">${t.time}</div>
+                    <div class="text-xs text-blue-200">${t.height} cm</div>
                 `;
-                cardsContainer.appendChild(card);
-            });
-
-            // 테이블 렌더링
-            tableBody.innerHTML = '';
-            data.events.forEach((ev) => {
-                const row = document.createElement('tr');
-                row.className = "hover:bg-slate-50 transition";
-                const badgeStyle = ev.type === '만조' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800';
-                row.innerHTML = `
-                    <td class="p-3 font-medium"><span class="px-2 py-1 rounded text-xs font-bold ${badgeStyle}">${ev.type}</span></td>
-                    <td class="p-3 font-semibold text-slate-700">${ev.time}</td>
-                    <td class="p-3 text-slate-600">${ev.height} cm</td>
-                    <td class="p-3 text-slate-500 text-xs">${ev.desc}</td>
-                `;
-                tableBody.appendChild(row);
+                tideMiniCards.appendChild(card);
             });
         }
 
-        // 조회 버튼 이벤트
-        searchBtn.addEventListener('click', renderDashboard);
+        stationSelect.addEventListener('change', updateTideDashboard);
+        updateTideDashboard(); // 초기 실행
 
-        // 페이지 최초 로드 시 렌더링
-        renderDashboard();
+        // 조과 기록 제출 이벤트
+        catchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const species = document.getElementById('fish-species').value;
+            const station = stationSelect.value;
+            const date = catchDateInput.value;
+            const num = document.getElementById('catch-num').value;
+            const memo = document.getElementById('catch-memo').value || '메모 없음';
+            const tideInfo = tideDatabase[station];
+
+            const emoji = species.includes('오징어') ? '🦑' : '🐟';
+
+            const newItem = document.createElement('div');
+            newItem.className = "p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-blue-300 transition";
+            newItem.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 text-xl font-bold shrink-0">
+                        ${emoji}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-900">${species}</span>
+                            <span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded font-bold">${num}마리</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> ${station} 포인트 · ${date}</p>
+                        <p class="text-xs text-slate-600 mt-1 bg-white p-2 rounded border border-slate-200/60">
+                            🌊 <strong>물때:</strong> ${tideInfo.moult} | <strong>만조:</strong> ${tideInfo.tides[1].time} (${tideInfo.tides[1].height}cm) | <strong>메모:</strong> ${memo}
+                        </p>
+                    </div>
+                </div>
+                <button onclick="this.closest('div.flex').remove()" class="text-slate-400 hover:text-rose-500 text-sm p-2">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+
+            catchList.prepend(newItem);
+            catchForm.reset();
+            catchDateInput.value = new Date().toISOString().split('T')[0];
+            updateTideDashboard();
+        });
     </script>
 </body>
 </html>
