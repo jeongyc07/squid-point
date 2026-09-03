@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🦑 어종별 조과 & 포인트 맵 (대한민국 전 해역 정밀 물때 엔진 적용)</title>
+    <title>🦑 어종별 조과 & 포인트 맵 (이미지 자동 압축 추가)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -70,18 +70,17 @@
 
         .form-group { margin-bottom: 2px; }
         .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; }
-        .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; }
+        .form-group input { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
 
         #lunar-display {
             font-size: 11px; color: #e67e22; font-weight: bold; margin-top: 4px; background: #fcf8f2; padding: 6px 8px; border-radius: 4px; border: 1px solid #fae5d3;
-            display: flex; justify-content: space-between; align-items: center;
         }
-        .api-status { font-size: 10px; color: #27ae60; font-weight: normal; }
 
         .catch-input-wrapper { display: flex; align-items: center; gap: 8px; }
         .catch-input-wrapper input { text-align: right; font-weight: bold; font-size: 15px; color: #2980b9; }
         .catch-unit { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
 
+        /* 2열 배치용 로우 스타일 */
         .row-2col { display: flex; gap: 8px; }
         .row-2col .form-group { flex: 1; }
 
@@ -114,6 +113,7 @@
         .delete-record-btn { background: #e74c3c; color: white; border: none; padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .delete-record-btn:hover { background: #c0392b; }
 
+        /* 사진 크게보기 모달 스타일 */
         #photo-view-modal {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8);
             z-index: 300; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
@@ -122,6 +122,7 @@
         .photo-modal-content { max-width: 90%; max-height: 90%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .photo-modal-content img { max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); object-fit: contain; }
 
+        /* 패턴 분석 모달 스타일 */
         #spot-analysis-modal {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5);
             z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
@@ -171,7 +172,6 @@
 <body>
 
     <div class="main-container">
-        <!-- 좌측 어종 선택 메뉴바 -->
         <div id="species-sidebar">
             <button class="species-btn active" onclick="switchSpecies('squid', this)" oncontextmenu="handleSpeciesRightClick('squid', event)">
                 <span>🦑</span>무늬
@@ -203,7 +203,6 @@
                 </button>
             </div>
 
-            <!-- 사진 등록 섹션 -->
             <div class="photo-upload-section" onclick="document.getElementById('photo-file-input').click()">
                 <div class="photo-upload-label">
                     📷 사진 등록
@@ -217,19 +216,15 @@
                 <div class="form-group">
                     <label>양력 날짜 선택</label>
                     <input type="date" id="record-date" onchange="onDateChange()">
-                    <div id="lunar-display">
-                        <span id="lunar-text">음력: -</span>
-                        <span class="api-status" id="api-status-text">🌊 전국 전해역 정밀 물때 연동</span>
-                    </div>
+                    <div id="lunar-display">음력: -</div>
                 </div>
 
-                <!-- 물때 입력 & 조과 (좌우 배치) -->
                 <div class="row-2col">
                     <div class="form-group">
-                        <label>물때 입력 (전국 위치별 정밀 보정)</label>
+                        <label>물때 입력</label>
                         <div class="catch-input-wrapper">
-                            <input type="text" id="tide-input" placeholder="예: 13물">
-                            <span class="catch-unit" id="tide-unit-label">물때</span>
+                            <input type="number" id="tide-input" min="1" max="15" placeholder="">
+                            <span class="catch-unit">물</span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -241,7 +236,6 @@
                     </div>
                 </div>
 
-                <!-- 최저수온 & 최고수온 (좌우 배치) -->
                 <div class="row-2col">
                     <div class="form-group">
                         <label>최저수온</label>
@@ -274,7 +268,6 @@
         </div>
     </div>
 
-    <!-- 사진 크게보기 모달 -->
     <div id="photo-view-modal" onclick="closePhotoModal()">
         <div class="photo-modal-content" onclick="event.stopPropagation()">
             <img id="modal-photo-img" src="" alt="출조 인증 사진">
@@ -282,7 +275,6 @@
         </div>
     </div>
 
-    <!-- 시즌 분석 모달 -->
     <div id="spot-analysis-modal">
         <div class="analysis-modal-content">
             <div class="analysis-modal-header" id="modal-header-container">
@@ -296,14 +288,13 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAfco08ZKb0Z8JWZOag5f5JIEpGDIJ2L0o",
-            authDomain: "spot-default-rtdb.firebaseapp.com",
+            authDomain: "squid-point.firebaseapp.com",
             projectId: "squid-point",
             storageBucket: "squid-point.firebasestorage.app",
             messagingSenderId: "888773240658",
@@ -334,7 +325,7 @@
 
         let allSpeciesData = {
             squid: { name: '무늬오징어', dbKey: 'spots', unit: '마리', icon: '🦑', markers: {} },
-            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', icon: '🦪', markers: {} },
+            cuttlefish: { name: '갑오징어', dbKey: 'cuttlefish_spots', unit: '마리', icon: '🦑', markers: {} },
             yellowtail: { name: '방어/부시리', dbKey: 'yellowtail_spots', unit: '마리', icon: '🐟', markers: {} }
         };
 
@@ -381,6 +372,7 @@
                         }
                     });
 
+                    // PC용: 지도 우클릭 시 수동 포인트 생성
                     kakao.maps.event.addListener(map, 'rightclick', function(mouseEvent) {
                         closeSpotAnalysisModal();
 
@@ -413,6 +405,7 @@
                         openPanel();
                     });
 
+                    // 지도 일반 클릭 시
                     kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
                         closeSpotAnalysisModal();
                         
@@ -423,6 +416,7 @@
                         }
                     });
 
+                    // ESC 키 누를 때 처리
                     document.addEventListener('keydown', function(event) {
                         if (event.key === 'Escape') {
                             closePhotoModal();
@@ -441,11 +435,13 @@
             });
         });
 
+        // 좌측 어종 버튼 우클릭 시 기본 브라우저 메뉴 방지 및 패널 타이틀 설정용
         function handleSpeciesRightClick(speciesKey, event) {
             event.preventDefault();
             switchSpecies(speciesKey, event.currentTarget);
         }
 
+        // 📷 이미지를 업로드할 때 자동으로 크기 및 용량을 압축하는 함수 (캔버스 활용)
         function compressAndResizeImage(file, callback) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -465,7 +461,7 @@
                         }
                     } else {
                         if (height > MAX_HEIGHT) {
-                            width = Math.round((height * MAX_HEIGHT) / height);
+                            width = Math.round((width * MAX_HEIGHT) / height);
                             height = MAX_HEIGHT;
                         }
                     }
@@ -484,6 +480,7 @@
             reader.readAsDataURL(file);
         }
 
+        // 사진 업로드 및 EXIF(날짜, GPS) 추출 + 자동 압축 적용
         function handlePhotoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -675,18 +672,12 @@
             });
         }
 
-        // ==========================================
-        // 대한민국 전 해역 정밀 물때 계산 엔진 (위경도 기반 조석 보정)
-        // ==========================================
-        function calculateAccurateTide(dateStr, lat, lng) {
-            const statusEl = document.getElementById('api-status-text');
-            const tideInputEl = document.getElementById('tide-input');
-            const lunarTextEl = document.getElementById('lunar-text');
+        function onDateChange() {
+            const dateVal = document.getElementById('record-date').value;
+            if (!dateVal) return;
 
             try {
-                const targetDate = new Date(dateStr);
-                
-                // 음력 날짜 추출
+                const targetDate = new Date(dateVal);
                 const lunarFormatter = new Intl.DateTimeFormat('ko-KR', {
                     calendar: 'chinese',
                     year: 'numeric',
@@ -694,55 +685,13 @@
                     day: 'numeric'
                 });
 
-                let lunarFullStr = lunarFormatter.format(targetDate);
-                let cleanLunar = lunarFullStr.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
-                lunarTextEl.innerHTML = `음력 ${cleanLunar}`;
+                let lunarText = lunarFormatter.format(targetDate);
+                lunarText = lunarText.replace(/([갑을병정무기경신임계][자축인묘진사오미신유술해]년\s*|\([^)]*\))/g, '').trim();
 
-                let dayMatch = cleanLunar.match(/(\d+)일/);
-                if (dayMatch) {
-                    let lunarDay = parseInt(dayMatch[1]);
-
-                    // 대한민국 해역별 지역 보정치(offset) 자동 계산 (위경도 기준)
-                    // - 서해안 (인천, 태안, 군산 등): 경도 126.8 이하고 위도가 높을수록 조석부등 지연 반영 (보정치 + 6 또는 + 5)
-                    // - 남해안 (완도, 여수, 통영 등): 남해안 표준 (보정치 + 7)
-                    // - 동해안 / 제주도: 해당 해역 조석 기준 반영
-                    let regionOffset = 7; // 기본값 (남해안 기준)
-
-                    if (lng < 126.8) {
-                        // 경기/인천/충남 서해안권
-                        regionOffset = 6; 
-                    } else if (lng >= 126.5 && lng < 127.5 && lat < 35.5) {
-                        // 전남 서남해안권 (목포, 진도 등)
-                        regionOffset = 6;
-                    } else if (lng >= 129.0) {
-                        // 동해안권 (포항, 부산, 강릉 등)
-                        regionOffset = 8;
-                    } else if (lat < 33.6) {
-                        // 제주도권
-                        regionOffset = 5;
-                    }
-
-                    let tideVal = lunarDay + regionOffset;
-                    
-                    // 15물 주기로 순환 정규화
-                    while (tideVal > 15) tideVal -= 15;
-                    while (tideVal <= 0) tideVal += 15;
-
-                    tideInputEl.value = `${tideVal}물`;
-                    statusEl.innerHTML = `🌊 전국 전해역 정밀 연동 완료`;
-                } else {
-                    tideInputEl.value = "8물";
-                    statusEl.innerHTML = `🌙 표준 물때 적용`;
-                }
+                document.getElementById('lunar-display').innerHTML = `🌙 음력 ${lunarText}`;
             } catch (e) {
-                statusEl.innerHTML = `⚠️ 날짜 변환 오류`;
+                document.getElementById('lunar-display').innerHTML = `🌙 음력 변환 오류`;
             }
-        }
-
-        function onDateChange() {
-            const dateVal = document.getElementById('record-date').value;
-            if (!dateVal) return;
-            calculateAccurateTide(dateVal, selectedLat, selectedLng);
         }
 
         function openPanel() {
@@ -758,7 +707,7 @@
 
         function saveRecord() {
             const date = document.getElementById('record-date').value;
-            const lunarText = document.getElementById('lunar-text').innerText.replace('음력 ', '');
+            const lunarText = document.getElementById('lunar-display').innerText.replace('🌙 음력 ', '');
             const tide = document.getElementById('tide-input').value.trim();
             const waterTempMin = document.getElementById('water-temp-min').value.trim();
             const waterTempMax = document.getElementById('water-temp-max').value.trim();
@@ -858,7 +807,7 @@
             const unit = allSpeciesData[currentSpecies].unit;
             let html = '';
             spot.records.forEach(item => {
-                let tideStr = item.tide ? `물때: ${item.tide}` : '물때: -';
+                let tideStr = item.tide ? `물때: ${item.tide}물` : '물때: -';
                 let tempStr = '수온: -';
                 if (item.waterTempMin || item.waterTempMax) {
                     let minVal = item.waterTempMin ? item.waterTempMin + '℃' : '?';
@@ -1005,7 +954,7 @@
 
             filteredRecords.forEach(r => {
                 let cnt = parseInt(r.count || 0);
-                let tideKey = r.tide ? r.tide : null;
+                let tideKey = r.tide ? (r.tide + "물") : null;
                 if (tideKey) {
                     if (!tideStats[tideKey]) tideStats[tideKey] = { total: 0, count: 0 };
                     tideStats[tideKey].total += cnt;
